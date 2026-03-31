@@ -572,13 +572,14 @@ export default function CheckoutPage() {
       if (!isAuthenticated) return;
       try {
         const res = await getAddresses();
-        setAddresses(res.data);
-        const defaultAddr = res.data.find((a) => a.isDefault);
+        const list = Array.isArray(res.data) ? res.data : [];
+        setAddresses(list);
+        const defaultAddr = list.find((a) => a.isDefault);
         if (defaultAddr) {
           setSelectedAddressId(defaultAddr.id);
         }
       } catch {
-        // ignore
+        setAddresses([]);
       }
     }
     loadAddresses();
@@ -589,14 +590,46 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
     try {
-      const addressId = useNewAddress ? "new" : selectedAddressId;
-      if (!addressId) return;
+      // Build shipping address
+      let shippingAddress: {
+        full_name: string;
+        phone: string;
+        street: string;
+        ward: string;
+        district: string;
+        city: string;
+      };
+      let addressId: number | undefined;
+
+      if (useNewAddress || !selectedAddressId) {
+        // Use new address form data
+        shippingAddress = {
+          full_name: addressForm.fullName,
+          phone: addressForm.phone,
+          street: addressForm.streetAddress,
+          ward: addressForm.ward,
+          district: addressForm.district,
+          city: addressForm.province,
+        };
+      } else {
+        // Use saved address
+        const savedAddr = addresses.find((a) => a.id === selectedAddressId);
+        if (!savedAddr) return;
+        addressId = parseInt(savedAddr.id, 10);
+        shippingAddress = {
+          full_name: savedAddr.fullName,
+          phone: savedAddr.phone,
+          street: savedAddr.streetAddress,
+          ward: savedAddr.ward,
+          district: savedAddr.district,
+          city: savedAddr.province,
+        };
+      }
 
       await createOrder({
-        shippingAddressId: addressId,
-        shippingMethod,
-        paymentMethod,
-        note: note || undefined,
+        shipping_address: shippingAddress,
+        address_id: addressId,
+        notes: note || undefined,
       });
 
       clearCart();

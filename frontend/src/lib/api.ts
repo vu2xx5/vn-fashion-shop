@@ -197,9 +197,8 @@ export async function addToCart(
   variantId?: string
 ): Promise<ApiResponse<CartItem>> {
   return api.post<ApiResponse<CartItem>>("/cart/items", {
-    productId,
+    variant_id: variantId ? parseInt(variantId, 10) : parseInt(productId, 10),
     quantity,
-    variantId,
   });
 }
 
@@ -207,7 +206,7 @@ export async function updateCartItem(
   itemId: string,
   quantity: number
 ): Promise<ApiResponse<CartItem>> {
-  return api.patch<ApiResponse<CartItem>>(`/cart/items/${itemId}`, { quantity });
+  return api.put<ApiResponse<CartItem>>(`/cart/items/${itemId}`, { quantity });
 }
 
 export async function removeCartItem(itemId: string): Promise<void> {
@@ -223,10 +222,16 @@ export async function clearCart(): Promise<void> {
 // ============================================================
 
 export async function createOrder(data: {
-  shippingAddressId: string;
-  shippingMethod: string;
-  paymentMethod: string;
-  note?: string;
+  shipping_address: {
+    full_name: string;
+    phone: string;
+    street: string;
+    ward: string;
+    district: string;
+    city: string;
+  };
+  address_id?: number;
+  notes?: string;
 }): Promise<ApiResponse<Order>> {
   return api.post<ApiResponse<Order>>("/orders", data);
 }
@@ -234,8 +239,8 @@ export async function createOrder(data: {
 export async function getOrders(
   page?: number,
   limit?: number
-): Promise<PaginatedResponse<Order>> {
-  return api.get<PaginatedResponse<Order>>("/orders", { page, limit });
+): Promise<ApiResponse<Order[]>> {
+  return api.get<ApiResponse<Order[]>>("/orders", { page, limit });
 }
 
 export async function getOrder(id: string): Promise<ApiResponse<Order>> {
@@ -259,7 +264,12 @@ export async function login(
 export async function register(
   data: RegisterData
 ): Promise<ApiResponse<{ user: User; token: string }>> {
-  return api.post<ApiResponse<{ user: User; token: string }>>("/auth/register", data);
+  return api.post<ApiResponse<{ user: User; token: string }>>("/auth/register", {
+    email: data.email,
+    password: data.password,
+    full_name: data.fullName,
+    phone: data.phone,
+  });
 }
 
 export async function logout(): Promise<void> {
@@ -304,7 +314,7 @@ export async function deleteAddress(id: string): Promise<void> {
 // ============================================================
 
 export async function getDashboardMetrics(): Promise<ApiResponse<DashboardMetrics>> {
-  return api.get<ApiResponse<DashboardMetrics>>("/admin/dashboard");
+  return api.get<ApiResponse<DashboardMetrics>>("/admin/metrics");
 }
 
 export async function getAdminProducts(
@@ -342,7 +352,7 @@ export async function updateOrderStatus(
   id: string,
   status: string
 ): Promise<ApiResponse<Order>> {
-  return api.patch<ApiResponse<Order>>(`/admin/orders/${id}/status`, { status });
+  return api.put<ApiResponse<Order>>(`/admin/orders/${id}/status`, { status });
 }
 
 export { api as apiClient, ApiError };

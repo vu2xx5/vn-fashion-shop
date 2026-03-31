@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 class AdminOrderStatusUpdate(BaseModel):
     status: str = Field(
         ...,
-        description="Trang thai moi: confirmed, processing, shipped, delivered, cancelled",
+        description="Trang thai moi: paid, shipped, delivered, cancelled",
     )
     note: Optional[str] = Field(None, max_length=500)
 

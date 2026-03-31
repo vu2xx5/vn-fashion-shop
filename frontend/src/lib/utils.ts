@@ -127,13 +127,11 @@ export function getOrderStatusLabel(
   status: string
 ): { label: string; color: string } {
   const statusMap: Record<string, { label: string; color: string }> = {
-    pending: { label: "Chờ xác nhận", color: "yellow" },
-    confirmed: { label: "Đã xác nhận", color: "blue" },
-    processing: { label: "Đang xử lý", color: "blue" },
-    shipping: { label: "Đang giao hàng", color: "purple" },
+    pending: { label: "Chờ xử lý", color: "yellow" },
+    paid: { label: "Đã thanh toán", color: "blue" },
+    shipped: { label: "Đang giao hàng", color: "purple" },
     delivered: { label: "Đã giao", color: "green" },
     cancelled: { label: "Đã hủy", color: "red" },
-    returned: { label: "Đã trả hàng", color: "gray" },
   };
   return statusMap[status] ?? { label: status, color: "gray" };
 }

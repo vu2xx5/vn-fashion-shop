@@ -26,12 +26,10 @@ type Tab = "orders" | "addresses" | "info";
 
 const statusBadgeVariant: Record<string, "warning" | "info" | "purple" | "success" | "danger" | "gray"> = {
   pending: "warning",
-  confirmed: "info",
-  processing: "info",
-  shipping: "purple",
+  paid: "info",
+  shipped: "purple",
   delivered: "success",
   cancelled: "danger",
-  returned: "gray",
 };
 
 export default function ProfilePage() {
@@ -56,9 +54,9 @@ export default function ProfilePage() {
       setIsLoadingOrders(true);
       try {
         const res = await getOrders(1, 20);
-        setOrders(res.data);
+        setOrders(Array.isArray(res.data) ? res.data : []);
       } catch {
-        // ignore
+        setOrders([]);
       } finally {
         setIsLoadingOrders(false);
       }
@@ -68,9 +66,9 @@ export default function ProfilePage() {
       setIsLoadingAddresses(true);
       try {
         const res = await getAddresses();
-        setAddresses(res.data);
+        setAddresses(Array.isArray(res.data) ? res.data : []);
       } catch {
-        // ignore
+        setAddresses([]);
       } finally {
         setIsLoadingAddresses(false);
       }

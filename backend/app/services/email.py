@@ -56,8 +56,8 @@ def send_order_status_update(order: Any, user: Any, new_status: str) -> None:
     from app.tasks.email_tasks import send_email_task
 
     status_labels = {
-        "confirmed": "Da xac nhan",
-        "processing": "Dang xu ly",
+        "pending": "Cho xu ly",
+        "paid": "Da thanh toan",
         "shipped": "Dang giao hang",
         "delivered": "Da giao hang",
         "cancelled": "Da huy",
@@ -83,23 +83,33 @@ def _render_order_confirmation_html(order: Any, user: Any) -> str:
     items_html = ""
     if hasattr(order, "items"):
         for item in order.items:
+            line_total = item.quantity * item.unit_price
             items_html += f"""
             <tr>
                 <td style="padding: 8px; border-bottom: 1px solid #eee;">
-                    {item.product_name} ({item.variant_size} / {item.variant_color})
+                    {item.product_name} ({item.variant_info})
                 </td>
                 <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">
                     {item.quantity}
                 </td>
                 <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">
-                    {_format_vnd(item.total_price)}
+                    {_format_vnd(line_total)}
                 </td>
             </tr>
             """
 
+    # Shipping address la JSONB dict
+    addr = order.shipping_address or {}
+    addr_name = addr.get("full_name", "")
+    addr_phone = addr.get("phone", "")
+    addr_street = addr.get("street", "")
+    addr_ward = addr.get("ward", "")
+    addr_district = addr.get("district", "")
+    addr_city = addr.get("city", "")
+
     return f"""
     <div style="max-width: 600px; margin: 0 auto; font-family: Arial, sans-serif;">
-        <h2 style="color: #333;">Xac nhan don hang #{order.id}</h2>
+        <h2 style="color: #333;">Xac nhan don hang #{order.order_number}</h2>
         <p>Xin chao {user.full_name},</p>
         <p>Cam on ban da dat hang tai {settings.APP_NAME}. Don hang cua ban da duoc tiep nhan.</p>
 
@@ -118,17 +128,17 @@ def _render_order_confirmation_html(order: Any, user: Any) -> str:
 
         <div style="text-align: right; margin-top: 10px;">
             <p>Tam tinh: <strong>{_format_vnd(order.subtotal)}</strong></p>
-            <p>Phi van chuyen: <strong>{_format_vnd(order.shipping_cost)}</strong></p>
+            <p>Phi van chuyen: <strong>{_format_vnd(order.shipping_fee)}</strong></p>
             <p style="font-size: 18px;">Tong cong: <strong style="color: #e53e3e;">
                 {_format_vnd(order.total)}</strong></p>
         </div>
 
         <div style="margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 5px;">
             <h3>Dia chi giao hang</h3>
-            <p>{order.shipping_name}<br/>
-               {order.shipping_phone}<br/>
-               {order.shipping_address}, {order.shipping_ward}<br/>
-               {order.shipping_district}, {order.shipping_city}</p>
+            <p>{addr_name}<br/>
+               {addr_phone}<br/>
+               {addr_street}, {addr_ward}<br/>
+               {addr_district}, {addr_city}</p>
         </div>
 
         <p style="margin-top: 20px; color: #666; font-size: 12px;">

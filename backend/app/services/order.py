@@ -7,13 +7,14 @@ from typing import Any, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload, selectinload
+from sqlalchemy.orm import selectinload
 
 from app.models.cart import Cart, CartItem
-from app.models.order import AuditLog, Order, OrderItem
+from app.models.order import AuditLog, Order, OrderItem, OrderStatus
 from app.models.product import ProductVariant
 from app.models.user import Address, User
 from app.services.inventory import bulk_release_stock, bulk_reserve_stock
+from app.utils.security import generate_order_number
 
 
 class OrderError(Exception):
@@ -23,15 +24,13 @@ class OrderError(Exception):
         super().__init__(detail)
 
 
-# Dinh nghia trang thai don hang hop le
+# Dinh nghia trang thai don hang hop le (khop voi OrderStatus enum)
 ORDER_STATUS_FLOW = {
-    "pending": ["confirmed", "cancelled"],
-    "confirmed": ["processing", "cancelled"],
-    "processing": ["shipped", "cancelled"],
+    "pending": ["paid", "cancelled"],
+    "paid": ["shipped", "cancelled"],
     "shipped": ["delivered"],
-    "delivered": ["returned"],
+    "delivered": [],
     "cancelled": [],
-    "returned": [],
 }
 
 
@@ -51,6 +50,8 @@ async def create_order(
     - Tao don hang va cac order items
     - Xoa gio hang
     """
+    from sqlalchemy.orm import joinedload
+
     # Load cart items voi variant va product
     cart_items_stmt = (
         select(CartItem)
@@ -75,9 +76,12 @@ async def create_order(
         raise OrderError("Dia chi khong ton tai.", status_code=404)
 
     # Tinh toan
-    shipping_cost = _calculate_shipping(shipping_option)
-    subtotal = sum(item.variant.product.price * item.quantity for item in cart_items)
-    total = subtotal + shipping_cost
+    shipping_fee = _calculate_shipping(shipping_option)
+    subtotal = sum(
+        float(item.variant.price_override or item.variant.product.price) * item.quantity
+        for item in cart_items
+    )
+    total = subtotal + shipping_fee
 
     # Giu cho ton kho
     stock_items = [
@@ -86,48 +90,59 @@ async def create_order(
     ]
     await bulk_reserve_stock(db, stock_items)
 
+    # Snapshot dia chi giao hang thanh JSONB dict
+    shipping_address_data = {
+        "full_name": address.full_name,
+        "phone": address.phone or user.phone or "",
+        "street": address.street,
+        "ward": address.ward,
+        "district": address.district,
+        "city": address.city,
+    }
+
     # Tao don hang
     order = Order(
         user_id=user.id,
-        status="pending",
+        order_number=generate_order_number(),
+        status=OrderStatus.PENDING,
         subtotal=subtotal,
-        shipping_cost=shipping_cost,
+        shipping_fee=shipping_fee,
         total=total,
-        shipping_option=shipping_option,
-        note=note,
-        # Snapshot dia chi giao hang
-        shipping_name=address.recipient_name or user.full_name,
-        shipping_phone=address.phone or user.phone or "",
-        shipping_address=address.address_line,
-        shipping_ward=getattr(address, "ward", ""),
-        shipping_district=getattr(address, "district", ""),
-        shipping_city=getattr(address, "city", ""),
+        shipping_address=shipping_address_data,
+        notes=note,
     )
     db.add(order)
     await db.flush()
 
     # Tao order items
     for cart_item in cart_items:
+        variant = cart_item.variant
+        product = variant.product
+        unit_price = float(variant.price_override or product.price)
+
+        variant_parts = []
+        if variant.size:
+            variant_parts.append(f"Size {variant.size}")
+        if variant.color:
+            variant_parts.append(variant.color)
+
         order_item = OrderItem(
             order_id=order.id,
             variant_id=cart_item.variant_id,
-            product_name=cart_item.variant.product.name,
-            variant_size=cart_item.variant.size,
-            variant_color=cart_item.variant.color,
+            product_name=product.name,
+            variant_info=" - ".join(variant_parts) if variant_parts else "Default",
             quantity=cart_item.quantity,
-            unit_price=cart_item.variant.product.price,
-            total_price=cart_item.variant.product.price * cart_item.quantity,
+            unit_price=unit_price,
         )
         db.add(order_item)
 
     # Tao audit log
     audit = AuditLog(
-        order_id=order.id,
-        action="created",
-        old_status=None,
-        new_status="pending",
-        performed_by=user.id,
-        note="Don hang duoc tao.",
+        user_id=user.id,
+        action="create_order",
+        entity_type="order",
+        entity_id=order.id,
+        details={"order_number": order.order_number, "total": float(total)},
     )
     db.add(audit)
 
@@ -184,10 +199,7 @@ async def get_order(
     stmt = (
         select(Order)
         .where(Order.id == order_id)
-        .options(
-            selectinload(Order.items),
-            selectinload(Order.audit_logs),
-        )
+        .options(selectinload(Order.items))
     )
     if user_id is not None:
         stmt = stmt.where(Order.user_id == user_id)
@@ -220,25 +232,29 @@ async def update_order_status(
     if order is None:
         raise OrderError("Don hang khong ton tai.", status_code=404)
 
-    allowed = ORDER_STATUS_FLOW.get(order.status, [])
+    current_status = order.status.value if isinstance(order.status, OrderStatus) else order.status
+    allowed = ORDER_STATUS_FLOW.get(current_status, [])
     if new_status not in allowed:
         raise OrderError(
-            f"Khong the chuyen trang thai tu '{order.status}' sang '{new_status}'. "
+            f"Khong the chuyen trang thai tu '{current_status}' sang '{new_status}'. "
             f"Trang thai hop le: {', '.join(allowed) if allowed else 'khong co'}."
         )
 
-    old_status = order.status
+    old_status = current_status
     order.status = new_status
     order.updated_at = datetime.now(timezone.utc)
 
     # Ghi audit log
     audit = AuditLog(
-        order_id=order.id,
+        user_id=admin_id,
         action="status_change",
-        old_status=old_status,
-        new_status=new_status,
-        performed_by=admin_id,
-        note=note or f"Trang thai chuyen tu {old_status} sang {new_status}.",
+        entity_type="order",
+        entity_id=order.id,
+        details={
+            "old_status": old_status,
+            "new_status": new_status,
+            "note": note or f"Trang thai chuyen tu {old_status} sang {new_status}.",
+        },
     )
     db.add(audit)
 
@@ -252,7 +268,7 @@ async def cancel_order(
 ) -> Order:
     """
     Huy don hang (user).
-    Chi cho phep huy khi trang thai la pending hoac confirmed.
+    Chi cho phep huy khi trang thai la pending hoac paid.
     Giai phong ton kho da giu cho.
     """
     stmt = (
@@ -265,13 +281,14 @@ async def cancel_order(
     if order is None:
         raise OrderError("Don hang khong ton tai.", status_code=404)
 
-    if order.status not in ("pending", "confirmed"):
+    current_status = order.status.value if isinstance(order.status, OrderStatus) else order.status
+    if current_status not in ("pending", "paid"):
         raise OrderError(
-            "Chi co the huy don hang o trang thai 'cho xu ly' hoac 'da xac nhan'."
+            "Chi co the huy don hang o trang thai 'cho xu ly' hoac 'da thanh toan'."
         )
 
-    old_status = order.status
-    order.status = "cancelled"
+    old_status = current_status
+    order.status = OrderStatus.CANCELLED
     order.updated_at = datetime.now(timezone.utc)
 
     # Giai phong ton kho
@@ -283,12 +300,15 @@ async def cancel_order(
 
     # Audit log
     audit = AuditLog(
-        order_id=order.id,
-        action="cancelled",
-        old_status=old_status,
-        new_status="cancelled",
-        performed_by=user_id,
-        note="Don hang bi huy boi nguoi dung.",
+        user_id=user_id,
+        action="cancel_order",
+        entity_type="order",
+        entity_id=order.id,
+        details={
+            "old_status": old_status,
+            "new_status": "cancelled",
+            "note": "Don hang bi huy boi nguoi dung.",
+        },
     )
     db.add(audit)
 

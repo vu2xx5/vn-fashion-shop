@@ -7,28 +7,11 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from celery import Celery
-
 from app.config import get_settings
+from app.tasks.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-
-celery_app = Celery(
-    "vn_fashion_shop",
-    broker=settings.celery_broker,
-    backend=settings.celery_backend,
-)
-celery_app.conf.update(
-    task_serializer="json",
-    accept_content=["json"],
-    result_serializer="json",
-    timezone="Asia/Ho_Chi_Minh",
-    enable_utc=True,
-    task_acks_late=True,
-    task_reject_on_worker_lost=True,
-    broker_connection_retry_on_startup=True,
-)
 
 
 @celery_app.task(

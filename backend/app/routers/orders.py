@@ -143,7 +143,7 @@ async def create_order(
     return order
 
 
-@router.get("", response_model=list[OrderListResponse])
+@router.get("")
 async def list_orders(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -158,17 +158,29 @@ async def list_orders(
     result = await db.execute(stmt)
     orders = result.scalars().all()
 
-    response = []
+    data = []
     for order in orders:
-        response.append({
-            "id": order.id,
-            "order_number": order.order_number,
-            "status": order.status,
+        items_data = []
+        for item in order.items:
+            items_data.append({
+                "id": str(item.id),
+                "productId": str(item.variant_id or ""),
+                "productName": item.product_name,
+                "productImage": "",
+                "variantInfo": item.variant_info,
+                "quantity": item.quantity,
+                "unitPrice": float(item.unit_price),
+                "totalPrice": float(item.line_total),
+            })
+        data.append({
+            "id": str(order.id),
+            "orderNumber": order.order_number,
+            "orderStatus": order.status.value,
             "total": float(order.total),
-            "total_items": sum(item.quantity for item in order.items),
-            "created_at": order.created_at,
+            "items": items_data,
+            "createdAt": order.created_at.isoformat() if order.created_at else None,
         })
-    return response
+    return {"data": data}
 
 
 @router.get("/{order_id}", response_model=OrderResponse)

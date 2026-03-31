@@ -3,6 +3,7 @@ Dich vu thanh toan - Stripe payment intent, webhook xu ly.
 """
 
 import logging
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import stripe
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
-from app.models.order import AuditLog, Order
+from app.models.order import AuditLog, Order, OrderStatus
 from app.services.inventory import bulk_confirm_stock, bulk_release_stock
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,8 @@ async def create_payment_intent(
     Luu payment_intent_id vao order de theo doi.
     Don vi tien te la VND (khong co phan le).
     """
-    if order.status != "pending":
+    current_status = order.status.value if isinstance(order.status, OrderStatus) else order.status
+    if current_status != "pending":
         raise PaymentError("Chi co the thanh toan don hang dang cho xu ly.")
 
     if order.payment_intent_id:
@@ -54,13 +56,13 @@ async def create_payment_intent(
 
     try:
         intent = stripe.PaymentIntent.create(
-            amount=order.total,  # VND khong co phan le
+            amount=int(order.total),  # VND khong co phan le
             currency=settings.STRIPE_CURRENCY,
             metadata={
                 "order_id": str(order.id),
                 "user_id": str(order.user_id),
             },
-            description=f"VN Fashion Shop - Don hang #{order.id}",
+            description=f"VN Fashion Shop - Don hang #{order.order_number}",
             idempotency_key=f"order_{order.id}_payment",
         )
     except stripe.error.StripeError as e:
@@ -104,7 +106,10 @@ async def handle_webhook(
 
     # Idempotency: kiem tra audit log da ghi su kien nay chua
     existing_log = await db.execute(
-        select(AuditLog).where(AuditLog.note.contains(f"stripe_event:{event_id}"))
+        select(AuditLog).where(
+            AuditLog.action.contains("payment"),
+            AuditLog.details["stripe_event_id"].as_string() == event_id,
+        )
     )
     if existing_log.scalar_one_or_none() is not None:
         logger.info("Webhook event %s da duoc xu ly truoc do.", event_id)
@@ -148,32 +153,35 @@ async def _handle_payment_succeeded(
         logger.warning("Order %s khong ton tai cho payment intent.", order_id)
         return
 
-    if order.status != "pending":
-        logger.info("Order %s da o trang thai %s, bo qua.", order_id, order.status)
+    current_status = order.status.value if isinstance(order.status, OrderStatus) else order.status
+    if current_status != "pending":
+        logger.info("Order %s da o trang thai %s, bo qua.", order_id, current_status)
         return
 
-    # Cap nhat trang thai don hang
-    old_status = order.status
-    order.status = "confirmed"
-    order.payment_status = "paid"
-    order.paid_at = __import__("datetime").datetime.now(
-        __import__("datetime").timezone.utc
-    )
+    # Cap nhat trang thai don hang sang "paid"
+    order.status = OrderStatus.PAID
+    order.updated_at = datetime.now(timezone.utc)
 
     # Xac nhan ton kho
     stock_items = [
         {"variant_id": item.variant_id, "quantity": item.quantity}
         for item in order.items
+        if item.variant_id is not None
     ]
     await bulk_confirm_stock(db, stock_items)
 
     # Audit log voi idempotency marker
     audit = AuditLog(
-        order_id=order.id,
+        user_id=order.user_id,
         action="payment_succeeded",
-        old_status=old_status,
-        new_status="confirmed",
-        note=f"Thanh toan thanh cong qua Stripe. stripe_event:{event_id}",
+        entity_type="order",
+        entity_id=order.id,
+        details={
+            "old_status": "pending",
+            "new_status": "paid",
+            "stripe_event_id": event_id,
+            "note": "Thanh toan thanh cong qua Stripe.",
+        },
     )
     db.add(audit)
     await db.flush()
@@ -199,15 +207,18 @@ async def _handle_payment_failed(
     result = await db.execute(stmt)
     order = result.unique().scalar_one_or_none()
 
-    if order is None or order.status != "pending":
+    if order is None:
         return
 
-    order.payment_status = "failed"
+    current_status = order.status.value if isinstance(order.status, OrderStatus) else order.status
+    if current_status != "pending":
+        return
 
     # Giai phong ton kho da giu cho
     stock_items = [
         {"variant_id": item.variant_id, "quantity": item.quantity}
         for item in order.items
+        if item.variant_id is not None
     ]
     await bulk_release_stock(db, stock_items)
 
@@ -216,11 +227,15 @@ async def _handle_payment_failed(
         payment_intent.get("last_payment_error", {}).get("message", "Khong ro ly do")
     )
     audit = AuditLog(
-        order_id=order.id,
+        user_id=order.user_id,
         action="payment_failed",
-        old_status=order.status,
-        new_status=order.status,
-        note=f"Thanh toan that bai: {failure_message}. stripe_event:{event_id}",
+        entity_type="order",
+        entity_id=order.id,
+        details={
+            "old_status": current_status,
+            "stripe_event_id": event_id,
+            "note": f"Thanh toan that bai: {failure_message}.",
+        },
     )
     db.add(audit)
     await db.flush()

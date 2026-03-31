@@ -9,6 +9,7 @@ from app.routers.products import router as products_router, categories_router
 from app.routers.cart import router as cart_router
 from app.routers.checkout import router as checkout_router
 from app.routers.orders import router as orders_router
+from app.routers.addresses import router as addresses_router
 from app.routers.admin import router as admin_router
 from app.routers.webhooks import router as webhooks_router
 
@@ -21,5 +22,6 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(cart_router)
     app.include_router(checkout_router)
     app.include_router(orders_router)
+    app.include_router(addresses_router)
     app.include_router(admin_router)
     app.include_router(webhooks_router)

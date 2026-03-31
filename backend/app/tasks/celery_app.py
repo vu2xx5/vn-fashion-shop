@@ -40,6 +40,7 @@ celery_app.conf.update(
     # Auto-discover tasks trong cac module
     include=[
         "app.tasks.email",
+        "app.tasks.email_tasks",
         "app.tasks.image",
     ],
 )

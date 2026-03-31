@@ -4,7 +4,7 @@ Dich vu san pham - CRUD, tim kiem, loc, phan trang.
 
 from typing import Any, Optional
 
-from sqlalchemy import String, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
@@ -141,8 +141,7 @@ async def create_product(db: AsyncSession, data: dict[str, Any]) -> Product:
             product_id=product.id,
             url=img["url"],
             alt_text=img.get("alt_text", ""),
-            is_primary=img.get("is_primary", idx == 0),
-            sort_order=img.get("sort_order", idx),
+            position=img.get("position", idx),
         )
         db.add(image)
 
@@ -208,8 +207,7 @@ async def update_product(
                 product_id=product.id,
                 url=img["url"],
                 alt_text=img.get("alt_text", ""),
-                is_primary=img.get("is_primary", idx == 0),
-                sort_order=img.get("sort_order", idx),
+                position=img.get("position", idx),
             )
             db.add(image)
 
@@ -247,7 +245,6 @@ async def search_products(
             or_(
                 Product.name.ilike(search_term),
                 Product.description.ilike(search_term),
-                Product.sku.ilike(search_term),
             ),
         )
         .options(

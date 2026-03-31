@@ -113,7 +113,6 @@ async def add_to_cart(
         cart_id=cart.id,
         variant_id=variant_id,
         quantity=quantity,
-        unit_price=variant.product.price if hasattr(variant, "product") and variant.product else 0,
     )
     db.add(item)
     await db.flush()

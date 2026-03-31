@@ -25,6 +25,19 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
 def _user_to_frontend(user: User) -> dict:
     """Chuyen doi User model sang format frontend mong doi."""
     role = "admin" if user.is_admin else "customer"
+    addresses = []
+    if hasattr(user, "addresses") and user.addresses:
+        for addr in user.addresses:
+            addresses.append({
+                "id": str(addr.id),
+                "fullName": addr.full_name,
+                "phone": addr.phone,
+                "streetAddress": addr.street,
+                "ward": addr.ward,
+                "district": addr.district,
+                "province": addr.city,
+                "isDefault": addr.is_default,
+            })
     return {
         "id": str(user.id),
         "email": user.email,
@@ -32,7 +45,7 @@ def _user_to_frontend(user: User) -> dict:
         "phone": user.phone,
         "avatar": user.avatar_url,
         "role": role,
-        "addresses": [],
+        "addresses": addresses,
         "isEmailVerified": True,
         "createdAt": user.created_at.isoformat() if user.created_at else None,
         "updatedAt": user.updated_at.isoformat() if user.updated_at else None,
