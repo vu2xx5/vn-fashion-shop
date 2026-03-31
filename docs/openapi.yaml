@@ -1,0 +1,2054 @@
+openapi: "3.1.0"
+
+info:
+  title: VN Fashion Shop API
+  description: |
+    RESTful API cho nen tang thuong mai dien tu thoi trang Viet Nam.
+    RESTful API for the Vietnamese fashion e-commerce platform.
+
+    ## Xac thuc / Authentication
+    Su dung Bearer JWT token trong header `Authorization`.
+    Use Bearer JWT tokens in the `Authorization` header.
+
+    ## Phan trang / Pagination
+    Cac endpoint tra ve danh sach su dung query params `page` va `page_size`.
+    List endpoints use `page` and `page_size` query parameters.
+
+    ## Ma loi / Error Codes
+    - `400` -- Bad Request
+    - `401` -- Unauthorized (chua xac thuc)
+    - `403` -- Forbidden (khong co quyen)
+    - `404` -- Not Found
+    - `422` -- Validation Error
+    - `500` -- Internal Server Error
+  version: "1.0.0"
+  contact:
+    name: VN Fashion Shop Team
+    email: dev@vnfashion.vn
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.vnfashion.vn
+    description: Production
+
+tags:
+  - name: Auth
+    description: Dang ky, dang nhap, OAuth / Registration, login, OAuth
+  - name: Products
+    description: San pham thoi trang / Fashion products
+  - name: Categories
+    description: Danh muc san pham / Product categories
+  - name: Cart
+    description: Gio hang / Shopping cart
+  - name: Checkout
+    description: Thanh toan / Payment processing
+  - name: Orders
+    description: Don hang / Order management
+  - name: Admin
+    description: Quan tri / Admin dashboard
+  - name: Webhooks
+    description: Stripe webhooks
+  - name: Health
+    description: Kiem tra suc khoe he thong / System health
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token nhan duoc tu endpoint /auth/login
+
+  schemas:
+    # ---- Error Responses ----
+    ErrorResponse:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          example: "Khong tim thay san pham"
+
+    ValidationError:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              msg:
+                type: string
+              type:
+                type: string
+
+    # ---- Auth ----
+    RegisterRequest:
+      type: object
+      required: [email, password, full_name]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "nguyen.vana@gmail.com"
+        password:
+          type: string
+          minLength: 8
+          example: "MatKhau@123"
+        full_name:
+          type: string
+          example: "Nguyen Van A"
+        phone:
+          type: string
+          example: "0901234567"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "nguyen.vana@gmail.com"
+        password:
+          type: string
+          example: "MatKhau@123"
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refresh_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          example: "bearer"
+        expires_in:
+          type: integer
+          example: 1800
+
+    RefreshTokenRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+          example: "nguyen.vana@gmail.com"
+        full_name:
+          type: string
+          example: "Nguyen Van A"
+        phone:
+          type: string
+          example: "0901234567"
+        avatar_url:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [admin, staff, customer]
+        is_active:
+          type: boolean
+        is_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          example: "Nguyen Van B"
+        phone:
+          type: string
+          example: "0907654321"
+
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password]
+      properties:
+        current_password:
+          type: string
+        new_password:
+          type: string
+          minLength: 8
+
+    # ---- Categories ----
+    CategoryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Ao"
+        slug:
+          type: string
+          example: "ao"
+        description:
+          type: string
+          example: "Cac loai ao thoi trang nam nu"
+        image_url:
+          type: string
+          nullable: true
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+        sort_order:
+          type: integer
+        is_active:
+          type: boolean
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryResponse"
+
+    CreateCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Ao So Mi"
+        description:
+          type: string
+          example: "Ao so mi cong so va thoi trang"
+        parent_id:
+          type: string
+          format: uuid
+          nullable: true
+        image_url:
+          type: string
+          nullable: true
+        sort_order:
+          type: integer
+          default: 0
+
+    # ---- Products ----
+    ProductSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Ao Dai Hoa Sen"
+        slug:
+          type: string
+          example: "ao-dai-hoa-sen"
+        short_description:
+          type: string
+          example: "Ao dai truyen thong voi hoa van hoa sen"
+        base_price:
+          type: number
+          format: double
+          example: 1500000
+        sale_price:
+          type: number
+          format: double
+          nullable: true
+          example: 1200000
+        currency:
+          type: string
+          example: "VND"
+        primary_image_url:
+          type: string
+        is_featured:
+          type: boolean
+        average_rating:
+          type: number
+          format: double
+          example: 4.5
+        review_count:
+          type: integer
+          example: 23
+
+    ProductDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Ao Dai Hoa Sen"
+        slug:
+          type: string
+          example: "ao-dai-hoa-sen"
+        description:
+          type: string
+          example: "Ao dai truyen thong Viet Nam duoc thiet ke voi hoa van hoa sen tinh te, chat lieu lua to tam cao cap."
+        short_description:
+          type: string
+          example: "Ao dai truyen thong voi hoa van hoa sen"
+        base_price:
+          type: number
+          format: double
+          example: 1500000
+        sale_price:
+          type: number
+          format: double
+          nullable: true
+          example: 1200000
+        currency:
+          type: string
+          example: "VND"
+        brand:
+          type: string
+          example: "Thuy Design House"
+        material:
+          type: string
+          example: "Lua to tam 100%"
+        care_instructions:
+          type: string
+          example: "Giat tay nhe, khong vat, phoi bong mat"
+        origin:
+          type: string
+          example: "Viet Nam"
+        is_active:
+          type: boolean
+        is_featured:
+          type: boolean
+        total_sold:
+          type: integer
+          example: 150
+        average_rating:
+          type: number
+          format: double
+          example: 4.5
+        review_count:
+          type: integer
+          example: 23
+        category:
+          $ref: "#/components/schemas/CategoryResponse"
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductImage"
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductVariant"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ProductImage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        url:
+          type: string
+          example: "https://cdn.vnfashion.vn/products/ao-dai-hoa-sen-1.jpg"
+        alt_text:
+          type: string
+          example: "Ao dai hoa sen - mat truoc"
+        sort_order:
+          type: integer
+        is_primary:
+          type: boolean
+
+    ProductVariant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sku:
+          type: string
+          example: "ADHS-DO-M"
+        size:
+          type: string
+          enum: [XS, S, M, L, XL, XXL]
+          example: "M"
+        color:
+          type: string
+          example: "Do"
+        color_hex:
+          type: string
+          example: "#DC143C"
+        price:
+          type: number
+          format: double
+          example: 1200000
+        stock_quantity:
+          type: integer
+          example: 25
+        is_active:
+          type: boolean
+
+    CreateProductRequest:
+      type: object
+      required: [name, category_id, base_price]
+      properties:
+        name:
+          type: string
+          example: "Ao Dai Hoa Sen"
+        category_id:
+          type: string
+          format: uuid
+        description:
+          type: string
+          example: "Ao dai truyen thong Viet Nam duoc thiet ke voi hoa van hoa sen."
+        short_description:
+          type: string
+        base_price:
+          type: number
+          format: double
+          example: 1500000
+        sale_price:
+          type: number
+          format: double
+          nullable: true
+        brand:
+          type: string
+        material:
+          type: string
+        care_instructions:
+          type: string
+        origin:
+          type: string
+          default: "Viet Nam"
+        is_featured:
+          type: boolean
+          default: false
+
+    UpdateProductRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        category_id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        short_description:
+          type: string
+        base_price:
+          type: number
+          format: double
+        sale_price:
+          type: number
+          format: double
+          nullable: true
+        brand:
+          type: string
+        material:
+          type: string
+        is_active:
+          type: boolean
+        is_featured:
+          type: boolean
+
+    PaginatedProducts:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductSummary"
+        total:
+          type: integer
+          example: 120
+        page:
+          type: integer
+          example: 1
+        page_size:
+          type: integer
+          example: 20
+        total_pages:
+          type: integer
+          example: 6
+
+    # ---- Cart ----
+    CartResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItemResponse"
+        total_items:
+          type: integer
+          example: 3
+        subtotal:
+          type: number
+          format: double
+          example: 3600000
+        currency:
+          type: string
+          example: "VND"
+
+    CartItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        variant:
+          $ref: "#/components/schemas/CartItemVariant"
+        quantity:
+          type: integer
+          example: 2
+        line_total:
+          type: number
+          format: double
+          example: 2400000
+
+    CartItemVariant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        product_name:
+          type: string
+          example: "Ao Dai Hoa Sen"
+        sku:
+          type: string
+          example: "ADHS-DO-M"
+        size:
+          type: string
+          example: "M"
+        color:
+          type: string
+          example: "Do"
+        price:
+          type: number
+          format: double
+          example: 1200000
+        image_url:
+          type: string
+        stock_quantity:
+          type: integer
+          example: 25
+
+    AddToCartRequest:
+      type: object
+      required: [variant_id, quantity]
+      properties:
+        variant_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          example: 1
+
+    UpdateCartItemRequest:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: integer
+          minimum: 0
+          example: 2
+
+    # ---- Checkout ----
+    CheckoutRequest:
+      type: object
+      required: [shipping_address_id, payment_method]
+      properties:
+        shipping_address_id:
+          type: string
+          format: uuid
+        payment_method:
+          type: string
+          enum: [stripe, cod]
+          example: "stripe"
+        note:
+          type: string
+          example: "Giao hang truoc 5 gio chieu"
+          nullable: true
+        coupon_code:
+          type: string
+          nullable: true
+
+    CheckoutResponse:
+      type: object
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        order_number:
+          type: string
+          example: "VNF-20260101-0001"
+        total_amount:
+          type: number
+          format: double
+          example: 1230000
+        payment_method:
+          type: string
+          example: "stripe"
+        stripe_client_secret:
+          type: string
+          nullable: true
+          description: "Stripe PaymentIntent client_secret (chi tra ve khi payment_method=stripe)"
+
+    # ---- Orders ----
+    OrderResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        order_number:
+          type: string
+          example: "VNF-20260101-0001"
+        status:
+          type: string
+          enum: [pending, confirmed, processing, shipped, delivered, cancelled, refunded]
+        subtotal:
+          type: number
+          format: double
+          example: 1200000
+        shipping_fee:
+          type: number
+          format: double
+          example: 30000
+        discount_amount:
+          type: number
+          format: double
+          example: 0
+        total_amount:
+          type: number
+          format: double
+          example: 1230000
+        currency:
+          type: string
+          example: "VND"
+        payment_method:
+          type: string
+          example: "stripe"
+        payment_status:
+          type: string
+          enum: [pending, paid, failed, refunded]
+        shipping_name:
+          type: string
+          example: "Nguyen Van A"
+        shipping_phone:
+          type: string
+          example: "0901234567"
+        shipping_address:
+          type: string
+          example: "123 Nguyen Hue, Quan 1"
+        shipping_city:
+          type: string
+          example: "TP. Ho Chi Minh"
+        shipping_province:
+          type: string
+          example: "Ho Chi Minh"
+        tracking_number:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItemResponse"
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        shipped_at:
+          type: string
+          format: date-time
+          nullable: true
+        delivered_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    OrderItemResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        product_name:
+          type: string
+          example: "Ao Dai Hoa Sen"
+        variant_sku:
+          type: string
+          example: "ADHS-DO-M"
+        size:
+          type: string
+          example: "M"
+        color:
+          type: string
+          example: "Do"
+        unit_price:
+          type: number
+          format: double
+          example: 1200000
+        quantity:
+          type: integer
+          example: 1
+        total_price:
+          type: number
+          format: double
+          example: 1200000
+
+    PaginatedOrders:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderResponse"
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+
+    # ---- Admin ----
+    AdminUpdateOrderRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [confirmed, processing, shipped, delivered, cancelled]
+        tracking_number:
+          type: string
+
+    AdminDashboardStats:
+      type: object
+      properties:
+        total_orders:
+          type: integer
+          example: 1520
+        total_revenue:
+          type: number
+          format: double
+          example: 2500000000
+        total_customers:
+          type: integer
+          example: 830
+        total_products:
+          type: integer
+          example: 245
+        orders_today:
+          type: integer
+          example: 12
+        revenue_today:
+          type: number
+          format: double
+          example: 18500000
+        pending_orders:
+          type: integer
+          example: 8
+        low_stock_products:
+          type: integer
+          example: 5
+
+    PaginatedUsers:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserResponse"
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_pages:
+          type: integer
+
+    # ---- Address ----
+    AddressRequest:
+      type: object
+      required: [full_name, phone, street, ward, district, city, province]
+      properties:
+        full_name:
+          type: string
+          example: "Nguyen Van A"
+        phone:
+          type: string
+          example: "0901234567"
+        street:
+          type: string
+          example: "123 Nguyen Hue"
+        ward:
+          type: string
+          example: "Phuong Ben Nghe"
+        district:
+          type: string
+          example: "Quan 1"
+        city:
+          type: string
+          example: "TP. Ho Chi Minh"
+        province:
+          type: string
+          example: "Ho Chi Minh"
+        postal_code:
+          type: string
+          example: "700000"
+        is_default:
+          type: boolean
+          default: false
+
+    AddressResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        phone:
+          type: string
+        street:
+          type: string
+        ward:
+          type: string
+        district:
+          type: string
+        city:
+          type: string
+        province:
+          type: string
+        postal_code:
+          type: string
+        is_default:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    # ---- Health ----
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "ok"
+        version:
+          type: string
+          example: "1.0.0"
+        database:
+          type: string
+          example: "connected"
+        redis:
+          type: string
+          example: "connected"
+
+paths:
+  # ======== Health ========
+  /health:
+    get:
+      tags: [Health]
+      summary: Kiem tra suc khoe he thong / Health check
+      security: []
+      operationId: healthCheck
+      responses:
+        "200":
+          description: He thong hoat dong binh thuong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  # ======== Auth ========
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Dang ky tai khoan / Register
+      security: []
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Dang ky thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "400":
+          description: Email da ton tai
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "Email da duoc su dung"
+        "422":
+          description: Du lieu khong hop le
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Dang nhap / Login
+      security: []
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Dang nhap thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Sai email hoac mat khau
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "Email hoac mat khau khong dung"
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Lam moi access token / Refresh token
+      security: []
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: Token moi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Refresh token khong hop le
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/google:
+    get:
+      tags: [Auth]
+      summary: Dang nhap bang Google / Google OAuth
+      security: []
+      operationId: googleOAuth
+      responses:
+        "302":
+          description: Chuyen huong den Google OAuth
+
+  /auth/google/callback:
+    get:
+      tags: [Auth]
+      summary: Google OAuth callback
+      security: []
+      operationId: googleOAuthCallback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dang nhap thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+
+  /auth/facebook:
+    get:
+      tags: [Auth]
+      summary: Dang nhap bang Facebook / Facebook OAuth
+      security: []
+      operationId: facebookOAuth
+      responses:
+        "302":
+          description: Chuyen huong den Facebook OAuth
+
+  /auth/facebook/callback:
+    get:
+      tags: [Auth]
+      summary: Facebook OAuth callback
+      security: []
+      operationId: facebookOAuthCallback
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dang nhap thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Lay thong tin nguoi dung hien tai / Get current user
+      operationId: getMe
+      responses:
+        "200":
+          description: Thong tin nguoi dung
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      tags: [Auth]
+      summary: Cap nhat thong tin ca nhan / Update profile
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Cap nhat thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Doi mat khau / Change password
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Doi mat khau thanh cong
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Doi mat khau thanh cong"
+        "400":
+          description: Mat khau hien tai khong dung
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ======== Addresses ========
+  /auth/me/addresses:
+    get:
+      tags: [Auth]
+      summary: Danh sach dia chi / List addresses
+      operationId: listAddresses
+      responses:
+        "200":
+          description: Danh sach dia chi
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AddressResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      tags: [Auth]
+      summary: Them dia chi moi / Add address
+      operationId: createAddress
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressRequest"
+      responses:
+        "201":
+          description: Them dia chi thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddressResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Du lieu khong hop le
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+  /auth/me/addresses/{address_id}:
+    put:
+      tags: [Auth]
+      summary: Cap nhat dia chi / Update address
+      operationId: updateAddress
+      parameters:
+        - name: address_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressRequest"
+      responses:
+        "200":
+          description: Cap nhat thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddressResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay dia chi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [Auth]
+      summary: Xoa dia chi / Delete address
+      operationId: deleteAddress
+      parameters:
+        - name: address_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Xoa thanh cong
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay dia chi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ======== Categories ========
+  /categories:
+    get:
+      tags: [Categories]
+      summary: Danh sach danh muc / List categories
+      security: []
+      operationId: listCategories
+      parameters:
+        - name: include_inactive
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Danh sach danh muc (dang cay)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryResponse"
+
+  /categories/{slug}:
+    get:
+      tags: [Categories]
+      summary: Chi tiet danh muc / Category detail
+      security: []
+      operationId: getCategory
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ao-dai"
+      responses:
+        "200":
+          description: Thong tin danh muc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryResponse"
+        "404":
+          description: Khong tim thay danh muc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ======== Products ========
+  /products:
+    get:
+      tags: [Products]
+      summary: Danh sach san pham / List products
+      security: []
+      operationId: listProducts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: category
+          in: query
+          description: Loc theo slug danh muc
+          schema:
+            type: string
+          example: "ao-dai"
+        - name: search
+          in: query
+          description: Tim kiem theo ten san pham
+          schema:
+            type: string
+          example: "ao dai"
+        - name: min_price
+          in: query
+          schema:
+            type: number
+            format: double
+          example: 500000
+        - name: max_price
+          in: query
+          schema:
+            type: number
+            format: double
+          example: 2000000
+        - name: size
+          in: query
+          schema:
+            type: string
+            enum: [XS, S, M, L, XL, XXL]
+        - name: color
+          in: query
+          schema:
+            type: string
+          example: "Do"
+        - name: sort
+          in: query
+          description: Sap xep / Sort order
+          schema:
+            type: string
+            enum: [newest, price_asc, price_desc, best_selling, top_rated]
+            default: newest
+        - name: is_featured
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Danh sach san pham phan trang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedProducts"
+
+  /products/{slug}:
+    get:
+      tags: [Products]
+      summary: Chi tiet san pham / Product detail
+      security: []
+      operationId: getProduct
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "ao-dai-hoa-sen"
+      responses:
+        "200":
+          description: Thong tin chi tiet san pham
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+        "404":
+          description: Khong tim thay san pham
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "Khong tim thay san pham"
+
+  # ======== Cart ========
+  /cart:
+    get:
+      tags: [Cart]
+      summary: Xem gio hang / View cart
+      operationId: getCart
+      responses:
+        "200":
+          description: Thong tin gio hang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /cart/items:
+    post:
+      tags: [Cart]
+      summary: Them san pham vao gio hang / Add item to cart
+      operationId: addToCart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddToCartRequest"
+      responses:
+        "200":
+          description: Them thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "400":
+          description: San pham het hang hoac so luong vuot qua ton kho
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "San pham het hang"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay bien the san pham
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /cart/items/{item_id}:
+    patch:
+      tags: [Cart]
+      summary: Cap nhat so luong / Update quantity
+      operationId: updateCartItem
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCartItemRequest"
+      responses:
+        "200":
+          description: Cap nhat thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "400":
+          description: So luong vuot qua ton kho
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay mat hang trong gio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [Cart]
+      summary: Xoa san pham khoi gio / Remove item from cart
+      operationId: removeCartItem
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Xoa thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay mat hang trong gio
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /cart/clear:
+    delete:
+      tags: [Cart]
+      summary: Xoa toan bo gio hang / Clear cart
+      operationId: clearCart
+      responses:
+        "200":
+          description: Xoa gio hang thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ======== Checkout ========
+  /checkout:
+    post:
+      tags: [Checkout]
+      summary: Tao don hang va thanh toan / Create order and pay
+      operationId: checkout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutRequest"
+      responses:
+        "201":
+          description: Tao don hang thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResponse"
+        "400":
+          description: Gio hang trong hoac san pham het hang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "Gio hang dang trong"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Du lieu khong hop le
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+  # ======== Orders ========
+  /orders:
+    get:
+      tags: [Orders]
+      summary: Danh sach don hang cua toi / My orders
+      operationId: listMyOrders
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, processing, shipped, delivered, cancelled, refunded]
+      responses:
+        "200":
+          description: Danh sach don hang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedOrders"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders/{order_id}:
+    get:
+      tags: [Orders]
+      summary: Chi tiet don hang / Order detail
+      operationId: getOrder
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Chi tiet don hang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Khong co quyen xem don hang nay
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay don hang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /orders/{order_id}/cancel:
+    post:
+      tags: [Orders]
+      summary: Huy don hang / Cancel order
+      operationId: cancelOrder
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Huy don thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+        "400":
+          description: Don hang khong the huy (da giao hoac da huy)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                detail: "Khong the huy don hang da giao"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay don hang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ======== Admin ========
+  /admin/dashboard:
+    get:
+      tags: [Admin]
+      summary: Thong ke tong quan / Dashboard stats
+      operationId: adminDashboard
+      responses:
+        "200":
+          description: Thong ke he thong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboardStats"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Khong co quyen admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/products:
+    post:
+      tags: [Admin]
+      summary: Them san pham moi / Create product
+      operationId: adminCreateProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProductRequest"
+      responses:
+        "201":
+          description: Tao san pham thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Khong co quyen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Du lieu khong hop le
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+  /admin/products/{product_id}:
+    patch:
+      tags: [Admin]
+      summary: Cap nhat san pham / Update product
+      operationId: adminUpdateProduct
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProductRequest"
+      responses:
+        "200":
+          description: Cap nhat thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Khong co quyen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay san pham
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [Admin]
+      summary: Xoa san pham / Delete product
+      operationId: adminDeleteProduct
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Xoa thanh cong
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Khong co quyen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay san pham
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/categories:
+    post:
+      tags: [Admin]
+      summary: Them danh muc / Create category
+      operationId: adminCreateCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategoryRequest"
+      responses:
+        "201":
+          description: Tao danh muc thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CategoryResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Khong co quyen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/orders:
+    get:
+      tags: [Admin]
+      summary: Tat ca don hang / All orders
+      operationId: adminListOrders
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, confirmed, processing, shipped, delivered, cancelled, refunded]
+        - name: search
+          in: query
+          description: Tim theo ma don hang hoac ten khach
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Danh sach don hang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedOrders"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Khong co quyen admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/orders/{order_id}:
+    patch:
+      tags: [Admin]
+      summary: Cap nhat trang thai don hang / Update order status
+      operationId: adminUpdateOrder
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateOrderRequest"
+      responses:
+        "200":
+          description: Cap nhat thanh cong
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderResponse"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Khong co quyen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Khong tim thay don hang
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      summary: Danh sach nguoi dung / List users
+      operationId: adminListUsers
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [admin, staff, customer]
+        - name: search
+          in: query
+          description: Tim theo ten hoac email
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Danh sach nguoi dung
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedUsers"
+        "401":
+          description: Chua xac thuc
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Khong co quyen admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ======== Webhooks ========
+  /webhooks/stripe:
+    post:
+      tags: [Webhooks]
+      summary: Stripe webhook handler
+      security: []
+      operationId: stripeWebhook
+      description: |
+        Xu ly cac su kien tu Stripe:
+        - payment_intent.succeeded
+        - payment_intent.payment_failed
+        - charge.refunded
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Stripe event payload
+      responses:
+        "200":
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                    example: true
+        "400":
+          description: Invalid webhook signature
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
