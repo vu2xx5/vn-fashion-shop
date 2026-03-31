@@ -92,15 +92,19 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             </Link>
           </li>
           <li aria-hidden="true">/</li>
-          <li>
-            <Link
-              href={`/products?category=${product.category.slug}`}
-              className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
-            >
-              {product.category.name}
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
+          {product.category && (
+            <>
+              <li>
+                <Link
+                  href={`/products?category=${product.category.slug}`}
+                  className="hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                >
+                  {product.category.name}
+                </Link>
+              </li>
+              <li aria-hidden="true">/</li>
+            </>
+          )}
           <li className="text-gray-900 dark:text-white font-medium truncate max-w-[200px]">
             {product.name}
           </li>
@@ -184,12 +188,14 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         {/* Product info */}
         <div className="space-y-6">
           <div>
-            <Link
-              href={`/products?category=${product.category.slug}`}
-              className="text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline"
-            >
-              {product.category.name}
-            </Link>
+            {product.category && (
+              <Link
+                href={`/products?category=${product.category.slug}`}
+                className="text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline"
+              >
+                {product.category.name}
+              </Link>
+            )}
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-1 mb-3">
               {product.name}
             </h1>
@@ -381,15 +387,17 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               <span className="font-medium text-gray-700 dark:text-gray-300">SKU:</span>{" "}
               {selectedVariant?.sku ?? product.sku}
             </p>
-            <p>
-              <span className="font-medium text-gray-700 dark:text-gray-300">Danh mục:</span>{" "}
-              <Link
-                href={`/products?category=${product.category.slug}`}
-                className="text-primary-600 dark:text-primary-400 hover:underline"
-              >
-                {product.category.name}
-              </Link>
-            </p>
+            {product.category && (
+              <p>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Danh muc:</span>{" "}
+                <Link
+                  href={`/products?category=${product.category.slug}`}
+                  className="text-primary-600 dark:text-primary-400 hover:underline"
+                >
+                  {product.category.name}
+                </Link>
+              </p>
+            )}
             {product.tags.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1">
                 <span className="font-medium text-gray-700 dark:text-gray-300">Tags:</span>

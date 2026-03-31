@@ -19,9 +19,12 @@ const nextConfig = {
         protocol: "https",
         hostname: "api.vnfashion.vn",
       },
+      {
+        protocol: "https",
+        hostname: "placehold.co",
+      },
     ],
   },
-  // i18n is handled via app router middleware
 };
 
 module.exports = nextConfig;
