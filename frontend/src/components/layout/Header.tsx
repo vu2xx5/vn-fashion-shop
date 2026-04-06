@@ -40,6 +40,7 @@ export function Header() {
   const router = useRouter();
   const { itemCount, openDrawer } = useCart();
   const { user, isAuthenticated, logout } = useAuth();
+  const [hasMounted, setHasMounted] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -48,6 +49,10 @@ export function Header() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -121,7 +126,7 @@ export function Header() {
           <div className="container-custom flex items-center justify-between py-1.5 text-xs">
             <p>Mien phi van chuyen cho don hang tu 500.000d</p>
             <div className="flex items-center gap-4">
-              {isAuthenticated && user ? (
+              {hasMounted && isAuthenticated && user ? (
                 <>
                   <Link href="/profile" className="hover:underline">
                     Xin chao, {user.fullName}
@@ -289,9 +294,9 @@ export function Header() {
 
               {/* User */}
               <Link
-                href={isAuthenticated ? "/profile" : "/auth/login"}
+                href={hasMounted && isAuthenticated ? "/profile" : "/auth/login"}
                 className="hidden sm:flex p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                aria-label={isAuthenticated ? "Tai khoan" : "Dang nhap"}
+                aria-label={hasMounted && isAuthenticated ? "Tai khoan" : "Dang nhap"}
               >
                 <User className="h-5 w-5" />
               </Link>
@@ -303,7 +308,7 @@ export function Header() {
                 aria-label={`Gio hang, ${itemCount} san pham`}
               >
                 <ShoppingBag className="h-5 w-5" />
-                {itemCount > 0 && (
+                {hasMounted && itemCount > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-primary-600 rounded-full">
                     {itemCount > 99 ? "99+" : itemCount}
                   </span>
