@@ -28,7 +28,42 @@ from app.utils.security import generate_order_number
 router = APIRouter(prefix="/api/v1/orders", tags=["Orders"])
 
 
-@router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
+def _serialize_order(order) -> dict:
+    """Chuyen doi Order model sang format camelCase cho frontend."""
+    items_data = []
+    for item in (order.items or []):
+        items_data.append({
+            "id": str(item.id),
+            "productId": str(item.variant_id or ""),
+            "productName": item.product_name,
+            "productImage": "",
+            "variantInfo": item.variant_info,
+            "quantity": item.quantity,
+            "unitPrice": float(item.unit_price),
+            "totalPrice": float(item.line_total),
+        })
+    return {
+        "id": str(order.id),
+        "orderNumber": order.order_number,
+        "userId": str(order.user_id),
+        "orderStatus": order.status.value,
+        "subtotal": float(order.subtotal),
+        "shippingCost": float(order.shipping_fee),
+        "tax": 0,
+        "discount": 0,
+        "total": float(order.total),
+        "shippingAddress": order.shipping_address or {},
+        "shippingMethod": "standard",
+        "paymentMethod": "cod",
+        "paymentStatus": "pending",
+        "note": order.notes,
+        "items": items_data,
+        "createdAt": order.created_at.isoformat() if order.created_at else None,
+        "updatedAt": order.updated_at.isoformat() if order.updated_at else None,
+    }
+
+
+@router.post("", status_code=status.HTTP_201_CREATED)
 async def create_order(
     body: OrderCreate,
     current_user: User = Depends(get_current_user),
@@ -140,7 +175,7 @@ async def create_order(
     )
     result = await db.execute(stmt)
     order = result.scalar_one()
-    return order
+    return {"success": True, "data": _serialize_order(order)}
 
 
 @router.get("")
@@ -158,43 +193,11 @@ async def list_orders(
     result = await db.execute(stmt)
     orders = result.scalars().all()
 
-    data = []
-    for order in orders:
-        items_data = []
-        for item in order.items:
-            items_data.append({
-                "id": str(item.id),
-                "productId": str(item.variant_id or ""),
-                "productName": item.product_name,
-                "productImage": "",
-                "variantInfo": item.variant_info,
-                "quantity": item.quantity,
-                "unitPrice": float(item.unit_price),
-                "totalPrice": float(item.line_total),
-            })
-        data.append({
-            "id": str(order.id),
-            "orderNumber": order.order_number,
-            "userId": str(order.user_id),
-            "orderStatus": order.status.value,
-            "subtotal": float(order.subtotal),
-            "shippingCost": float(order.shipping_fee),
-            "tax": 0,
-            "discount": 0,
-            "total": float(order.total),
-            "shippingAddress": order.shipping_address or {},
-            "shippingMethod": "standard",
-            "paymentMethod": "cod",
-            "paymentStatus": "pending",
-            "note": order.notes,
-            "items": items_data,
-            "createdAt": order.created_at.isoformat() if order.created_at else None,
-            "updatedAt": order.updated_at.isoformat() if order.updated_at else None,
-        })
-    return {"data": data}
+    data = [_serialize_order(order) for order in orders]
+    return {"success": True, "data": data}
 
 
-@router.get("/{order_id}", response_model=OrderResponse)
+@router.get("/{order_id}")
 async def get_order(
     order_id: int,
     current_user: User = Depends(get_current_user),
@@ -214,10 +217,10 @@ async def get_order(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Don hang khong ton tai.",
         )
-    return order
+    return {"success": True, "data": _serialize_order(order)}
 
 
-@router.post("/{order_id}/cancel", response_model=OrderResponse)
+@router.post("/{order_id}/cancel")
 async def cancel_order(
     order_id: int,
     current_user: User = Depends(get_current_user),
@@ -270,10 +273,10 @@ async def cancel_order(
     await db.flush()
     await db.refresh(order)
 
-    return order
+    return {"success": True, "data": _serialize_order(order)}
 
 
-@router.put("/{order_id}/status", response_model=OrderResponse)
+@router.put("/{order_id}/status")
 async def admin_update_order_status(
     order_id: int,
     body: OrderStatusUpdate,
@@ -318,4 +321,4 @@ async def admin_update_order_status(
     await db.flush()
     await db.refresh(order)
 
-    return order
+    return {"success": True, "data": _serialize_order(order)}

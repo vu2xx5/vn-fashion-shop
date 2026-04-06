@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, ChevronDown, ChevronRight, User, Heart, Phone, Mail } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { X, ChevronDown, ChevronRight, User, Heart, Phone, Mail, LogIn, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 interface NavItem {
   label: string;
@@ -20,6 +22,8 @@ interface MobileNavProps {
 
 export function MobileNav({ isOpen, onClose, navigation }: MobileNavProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, isAuthenticated, logout } = useAuth();
   const overlayRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -173,20 +177,52 @@ export function MobileNav({ isOpen, onClose, navigation }: MobileNavProps) {
           <div className="border-t border-gray-200 dark:border-gray-700 my-2" />
 
           {/* Account links */}
-          <Link
-            href="/profile"
-            className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            <User className="h-5 w-5" />
-            <span className="font-medium">Tai khoan</span>
-          </Link>
-          <Link
-            href="/profile"
-            className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            <Heart className="h-5 w-5" />
-            <span className="font-medium">Yeu thich</span>
-          </Link>
+          {isAuthenticated && user ? (
+            <>
+              <Link
+                href="/profile"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <User className="h-5 w-5" />
+                <span className="font-medium">{user.fullName}</span>
+              </Link>
+              <Link
+                href="/profile"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <Heart className="h-5 w-5" />
+                <span className="font-medium">Yeu thich</span>
+              </Link>
+              <button
+                onClick={async () => {
+                  await logout();
+                  onClose();
+                  router.push("/");
+                }}
+                className="flex items-center gap-3 px-4 py-3 w-full text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors"
+              >
+                <LogOut className="h-5 w-5" />
+                <span className="font-medium">Dang xuat</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/auth/login"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <LogIn className="h-5 w-5" />
+                <span className="font-medium">Dang nhap</span>
+              </Link>
+              <Link
+                href="/auth/register"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                <User className="h-5 w-5" />
+                <span className="font-medium">Dang ky</span>
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Footer */}
