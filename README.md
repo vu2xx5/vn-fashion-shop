@@ -1,8 +1,37 @@
 # VN Fashion Shop
 
-Ung dung thuong mai dien tu thoi trang Viet Nam - Full-stack web application voi FastAPI backend va Next.js frontend.
+Vietnamese fashion e-commerce application — full-stack web app with FastAPI backend and Next.js frontend.
 
-## Kien truc he thong
+## Demo Credentials
+
+| Role | Email | Password |
+|------|-------|----------|
+| **Admin** | admin@vnfashion.vn | Admin123! |
+| **User** | user@vnfashion.vn | User123! |
+
+## Tech Stack
+
+### Backend
+- **FastAPI** — high-performance Python web framework
+- **SQLAlchemy 2.0** — async ORM with PostgreSQL
+- **Pydantic v2** — validation and serialization
+- **JWT** (python-jose) — token authentication
+- **bcrypt** — password hashing
+- **Redis** — cache and rate limiting
+- **Celery** — async task queue
+
+### Frontend
+- **Next.js 14** — React framework with App Router
+- **TypeScript** — type safety
+- **Tailwind CSS** — utility-first CSS
+- **Lucide React** — icon library
+
+### Infrastructure
+- **Docker & Docker Compose** — containerization
+- **PostgreSQL 16** — primary database
+- **Redis 7** — cache and message broker
+
+## System Architecture
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
@@ -19,216 +48,235 @@ Ung dung thuong mai dien tu thoi trang Viet Nam - Full-stack web application voi
                     └──────────────┘
 ```
 
-## Cong nghe su dung
+## Quick Start with Docker
 
-### Backend
-- **FastAPI** - Python web framework hieu nang cao
-- **SQLAlchemy 2.0** - ORM async voi PostgreSQL
-- **Pydantic v2** - Validation va serialization
-- **JWT** (python-jose) - Xac thuc token
-- **bcrypt** - Ma hoa mat khau
-- **Redis** - Cache va rate limiting
-- **SlowAPI** - Rate limiting middleware
-
-### Frontend
-- **Next.js 14** - React framework voi App Router
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Utility-first CSS
-- **Lucide React** - Icon library
-
-### Infrastructure
-- **Docker & Docker Compose** - Container hoa
-- **PostgreSQL 16** - Co so du lieu chinh
-- **Redis 7** - Cache va message broker
-
-## Tinh nang
-
-### Nguoi dung
-- Dang ky / Dang nhap (JWT authentication)
-- Xem danh sach san pham voi bo loc (danh muc, gia, kich thuoc, mau sac)
-- Tim kiem san pham
-- Xem chi tiet san pham (hinh anh, bien the, mo ta)
-- Gio hang (them, sua, xoa san pham)
-- Dat hang va thanh toan
-- Xem lich su don hang
-- Quan ly tai khoan va dia chi giao hang
-
-### Quan tri vien (Admin)
-- Dashboard thong ke (doanh thu, don hang, khach hang)
-- Quan ly san pham (CRUD)
-- Quan ly don hang (cap nhat trang thai)
-- Quan ly danh muc san pham
-
-### Ky thuat
-- API RESTful voi prefix `/api/v1`
-- CORS middleware cho frontend
-- Security headers (X-Frame-Options, CSP, XSS Protection)
-- Rate limiting (60 req/min mac dinh, 10 req/min cho auth)
-- Phan trang va sap xep du lieu
-- Xu ly loi tap trung (global exception handler)
-- Health check endpoint
-- Seed data (du lieu mau)
-
-## Cai dat va chay
-
-### Yeu cau
-- Docker Desktop (bao gom Docker Compose)
+### Requirements
+- Docker Desktop (includes Docker Compose)
 - Git
 
-### Buoc 1: Clone repository
+### Steps
+
 ```bash
+# 1. Clone repository
 git clone <repository-url>
 cd vn-fashion-shop
-```
 
-### Buoc 2: Cau hinh environment
-```bash
+# 2. Configure environment (defaults work with Docker)
 cp .env.example .env
-# Chinh sua .env neu can (mac dinh da hoat dong voi Docker)
-```
 
-### Buoc 3: Khoi dong voi Docker Compose
-```bash
+# 3. Start all services
 docker compose up -d
-```
 
-Lenh nay se khoi dong:
-- **PostgreSQL** tai `localhost:5432`
-- **Redis** tai `localhost:6379`
-- **Backend API** tai `http://localhost:8000`
-- **Frontend** tai `http://localhost:3000`
-
-### Buoc 4: Tao database va seed du lieu
-```bash
-# Tao bang du lieu
-docker compose exec backend python -m app.create_tables
-
-# Them du lieu mau
+# 4. Seed the database
 docker compose exec backend python -m seed.seed_data
+
+# 5. Open the app
+# Frontend:    http://localhost:3000
+# Backend API: http://localhost:8000
+# API Docs:    http://localhost:8000/docs
 ```
 
-### Buoc 5: Truy cap ung dung
+## Local Development (Without Docker)
+
+### Requirements
+- Python 3.12+
+- Node.js 20+
+- PostgreSQL 16 running locally
+- Redis 7 running locally
+
+### Setup
+
+```bash
+# 1. Configure environment for local dev
+cp .env.example .env
+# Edit .env: set DB_HOST=localhost and REDIS_HOST=localhost
+
+# 2. Install all dependencies
+make install
+# Or manually:
+#   cd backend && pip install -r requirements.txt
+#   cd frontend && npm ci
+
+# 3. Create the database
+createdb vnfashion   # or use psql
+
+# 4. Seed the database
+make seed
+# Or: cd backend && python -m seed.seed_data
+
+# 5. Start backend and frontend in separate terminals
+# Terminal 1 (backend):
+cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 2 (frontend):
+cd frontend && npm run dev
+```
+
+After setup:
 - **Frontend**: http://localhost:3000
-- **Backend API docs**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Backend API**: http://localhost:8000
+- **API Docs (Swagger)**: http://localhost:8000/docs
 
-## Tai khoan mac dinh (sau khi seed)
+## Makefile Commands
 
-| Vai tro | Email | Mat khau |
-|---------|-------|----------|
-| Admin | admin@vnfashion.vn | Admin123! |
-| Nguoi dung | user@vnfashion.vn | User123! |
+```bash
+make install      # Install backend (pip) + frontend (npm) deps
+make dev          # Start backend + frontend in dev mode
+make test         # Run all tests
+make seed         # Seed database with sample data
+make docker-up    # docker compose up -d
+make docker-down  # docker compose down
+make lint         # Run ruff (backend) + ESLint (frontend)
+make type-check   # Run tsc --noEmit (frontend)
+```
 
-## Cau truc thu muc
+## Running Tests
+
+```bash
+# All tests
+make test
+
+# Backend tests only
+cd backend && pytest tests/ -v
+
+# Frontend type check + lint
+cd frontend && npm run lint && npx tsc --noEmit
+```
+
+## Features
+
+### Customer
+- Register / Login (JWT authentication)
+- Browse products with filters (category, price, size, color)
+- Product search
+- Product detail with images and variants
+- Shopping cart (add, update, remove)
+- Checkout and payment (Stripe)
+- Order history
+- Manage account and shipping addresses
+
+### Admin
+- Dashboard with stats (revenue, orders, customers)
+- Product management (CRUD)
+- Order management (update status)
+- Category management
+
+## API Endpoints
+
+### Auth (`/api/v1/auth`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/login` | Login |
+| POST | `/register` | Register |
+| POST | `/refresh` | Refresh token |
+| GET | `/profile` | Get profile |
+| POST | `/logout` | Logout |
+
+### Products (`/api/v1/products`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | List products (with filters, pagination) |
+| GET | `/{slug}` | Product detail |
+| GET | `/featured` | Featured products |
+| GET | `/new-arrivals` | New arrivals |
+| GET | `/search?q=` | Search products |
+
+### Cart (`/api/v1/cart`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | View cart |
+| POST | `/items` | Add item |
+| PATCH | `/items/{id}` | Update quantity |
+| DELETE | `/items/{id}` | Remove item |
+
+### Orders (`/api/v1/orders`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/` | Create order |
+| GET | `/` | List orders |
+| GET | `/{id}` | Order detail |
+| POST | `/{id}/cancel` | Cancel order |
+
+### Admin (`/api/v1/admin`)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/metrics` | Dashboard stats |
+| GET | `/products` | Manage products |
+| POST | `/products` | Create product |
+| PUT | `/products/{id}` | Update product |
+| GET | `/orders` | Manage orders |
+| PATCH | `/orders/{id}/status` | Update order status |
+
+## Directory Structure
 
 ```
 vn-fashion-shop/
 ├── backend/
 │   ├── app/
-│   │   ├── config.py          # Cau hinh ung dung
-│   │   ├── database.py        # Ket noi database
-│   │   ├── dependencies.py    # Dependencies (auth, rate limit)
-│   │   ├── main.py            # Diem vao FastAPI
+│   │   ├── config.py          # App configuration
+│   │   ├── database.py        # Database connection
+│   │   ├── dependencies.py    # FastAPI dependencies (auth, rate limit)
+│   │   ├── main.py            # FastAPI entry point
 │   │   ├── models/            # SQLAlchemy models
 │   │   │   ├── user.py        # User, Address
 │   │   │   ├── product.py     # Product, Category, Variant
 │   │   │   └── order.py       # Order, OrderItem
-│   │   ├── routers/           # API endpoints
-│   │   │   ├── auth.py        # Xac thuc (login, register)
-│   │   │   ├── products.py    # San pham, danh muc
-│   │   │   ├── cart.py        # Gio hang
-│   │   │   ├── orders.py      # Don hang
-│   │   │   ├── admin.py       # Quan tri
-│   │   │   └── checkout.py    # Thanh toan
+│   │   ├── routers/           # API endpoint handlers
 │   │   ├── schemas/           # Pydantic schemas
 │   │   ├── services/          # Business logic
-│   │   └── utils/             # Tien ich (JWT, hash, ...)
-│   ├── seed/                  # Du lieu mau
+│   │   └── utils/             # JWT, hashing, helpers
+│   ├── seed/                  # Sample data seed script
+│   ├── tests/                 # Pytest test suite
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
 │   │   ├── app/               # Next.js App Router pages
-│   │   │   ├── auth/          # Trang dang nhap/dang ky
-│   │   │   ├── admin/         # Trang quan tri
-│   │   │   ├── products/      # Trang san pham
-│   │   │   └── layout.tsx     # Root layout
 │   │   ├── components/        # React components
-│   │   │   ├── layout/        # Header, Footer
-│   │   │   ├── products/      # ProductCard, ProductGrid
-│   │   │   └── ui/            # Button, Input, Modal
 │   │   ├── hooks/             # Custom hooks (useAuth, useCart)
 │   │   ├── lib/               # API client, utilities
 │   │   └── types/             # TypeScript type definitions
 │   ├── Dockerfile
 │   └── package.json
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # GitHub Actions CI pipeline
+├── Makefile                   # Developer convenience commands
 ├── docker-compose.yml
 ├── .env.example
 └── README.md
 ```
 
-## API Endpoints
+## Troubleshooting
 
-### Auth (`/api/v1/auth`)
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| POST | `/login` | Dang nhap |
-| POST | `/register` | Dang ky |
-| POST | `/refresh` | Lam moi token |
-| GET | `/profile` | Lay thong tin ca nhan |
-| POST | `/logout` | Dang xuat |
+### Backend fails to start — "could not connect to database"
+- Ensure PostgreSQL is running: `pg_isready -h localhost`
+- Check `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` in `.env`
+- For Docker: use `DB_HOST=db`, for local dev: use `DB_HOST=localhost`
 
-### Products (`/api/v1/products`)
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| GET | `/` | Danh sach san pham (co bo loc, phan trang) |
-| GET | `/{slug}` | Chi tiet san pham |
-| GET | `/featured` | San pham noi bat |
-| GET | `/new-arrivals` | San pham moi |
-| GET | `/search?q=` | Tim kiem san pham |
+### Backend fails to start — "could not connect to Redis"
+- Ensure Redis is running: `redis-cli ping` → should return `PONG`
+- Check `REDIS_HOST` and `REDIS_PORT` in `.env`
 
-### Categories (`/api/v1/categories`)
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| GET | `/` | Danh sach danh muc |
+### Frontend shows API errors
+- Confirm backend is running on port 8000
+- Check `NEXT_PUBLIC_API_URL` in `.env` (should be `http://localhost:8000/api/v1` for local dev)
 
-### Cart (`/api/v1/cart`)
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| GET | `/` | Xem gio hang |
-| POST | `/items` | Them san pham vao gio |
-| PATCH | `/items/{id}` | Cap nhat so luong |
-| DELETE | `/items/{id}` | Xoa san pham khoi gio |
+### Stripe payment errors
+- The app loads with placeholder Stripe keys but payments won't process
+- Replace `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, and `STRIPE_WEBHOOK_SECRET` with real test keys from https://dashboard.stripe.com
 
-### Orders (`/api/v1/orders`)
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| POST | `/` | Tao don hang |
-| GET | `/` | Danh sach don hang |
-| GET | `/{id}` | Chi tiet don hang |
-| POST | `/{id}/cancel` | Huy don hang |
+### Database tables not found
+- Run the seed script which creates tables automatically: `make seed`
+- Or in Docker: `docker compose exec backend python -m seed.seed_data`
 
-### Admin (`/api/v1/admin`)
-| Method | Endpoint | Mo ta |
-|--------|----------|-------|
-| GET | `/metrics` | Thong ke dashboard |
-| GET | `/products` | Quan ly san pham |
-| POST | `/products` | Tao san pham |
-| PUT | `/products/{id}` | Cap nhat san pham |
-| GET | `/orders` | Quan ly don hang |
-| PATCH | `/orders/{id}/status` | Cap nhat trang thai don |
-
-## Dung ung dung
-
+### Port already in use
 ```bash
-docker compose down
+# Find and kill the process using the port
+lsof -ti:8000 | xargs kill -9
+lsof -ti:3000 | xargs kill -9
 ```
 
-Xoa du lieu (bao gom volumes):
-```bash
-docker compose down -v
-```
-
-## Tac gia
+## Author
 
 Tran Quang Vu

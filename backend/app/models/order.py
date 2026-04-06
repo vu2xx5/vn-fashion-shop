@@ -6,6 +6,7 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     DateTime,
     Enum,
     ForeignKey,
@@ -16,10 +17,28 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.engine.interfaces import Dialect
+from sqlalchemy.types import TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+
+class JSONBCompat(TypeDecorator):
+    """
+    JSON type that uses JSONB on PostgreSQL and JSON on other databases.
+    This allows the same models to work with both PostgreSQL (production)
+    and SQLite (tests).
+    """
+
+    impl = JSON
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Dialect):
+        if dialect.name == "postgresql":
+            from sqlalchemy.dialects.postgresql import JSONB
+            return dialect.type_descriptor(JSONB())
+        return dialect.type_descriptor(JSON())
 
 
 class OrderStatus(str, enum.Enum):
@@ -49,7 +68,7 @@ class Order(Base):
         String(30), unique=True, nullable=False
     )
     status: Mapped[OrderStatus] = mapped_column(
-        Enum(OrderStatus, name="order_status", native_enum=True),
+        Enum(OrderStatus, name="order_status", native_enum=False),
         default=OrderStatus.PENDING,
         nullable=False,
     )
@@ -58,7 +77,7 @@ class Order(Base):
         Numeric(12, 0), default=0, nullable=False
     )
     total: Mapped[float] = mapped_column(Numeric(14, 0), nullable=False)
-    shipping_address: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    shipping_address: Mapped[dict] = mapped_column(JSONBCompat, nullable=False)
     payment_intent_id: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
@@ -131,7 +150,7 @@ class AuditLog(Base):
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_type: Mapped[str] = mapped_column(String(50), nullable=False)
     entity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    details: Mapped[dict | None] = mapped_column(JSONBCompat, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

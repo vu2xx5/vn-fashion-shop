@@ -52,7 +52,7 @@ async def get_cart(
     if cart is None:
         return None
 
-    # Load day du quan he
+    # Load day du quan he, dung populate_existing de lam moi cache
     stmt = (
         select(Cart)
         .where(Cart.id == cart.id)
@@ -61,6 +61,7 @@ async def get_cart(
                 ProductVariant.product
             ).selectinload(Product.images),
         )
+        .execution_options(populate_existing=True)
     )
     result = await db.execute(stmt)
     return result.unique().scalar_one_or_none()

@@ -79,7 +79,7 @@ async def add_item_to_cart(
     try:
         cart = await get_or_create_cart(db, user_id=current_user.id)
         await add_to_cart(db, cart, body.variant_id, body.quantity)
-        # Reload full cart
+        # Reload full cart with fresh query
         cart = await get_cart(db, user_id=current_user.id)
         return _build_cart_response(cart)
     except CartError as e:

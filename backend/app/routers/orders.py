@@ -175,10 +175,21 @@ async def list_orders(
         data.append({
             "id": str(order.id),
             "orderNumber": order.order_number,
+            "userId": str(order.user_id),
             "orderStatus": order.status.value,
+            "subtotal": float(order.subtotal),
+            "shippingCost": float(order.shipping_fee),
+            "tax": 0,
+            "discount": 0,
             "total": float(order.total),
+            "shippingAddress": order.shipping_address or {},
+            "shippingMethod": "standard",
+            "paymentMethod": "cod",
+            "paymentStatus": "pending",
+            "note": order.notes,
             "items": items_data,
             "createdAt": order.created_at.isoformat() if order.created_at else None,
+            "updatedAt": order.updated_at.isoformat() if order.updated_at else None,
         })
     return {"data": data}
 

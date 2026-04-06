@@ -9,13 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dependencies import get_current_admin, get_db
 from app.models.user import User
-from app.schemas.admin import (
-    AdminMetricsResponse,
-    AdminOrderStatusUpdate,
-)
-from app.schemas.order import OrderDetailResponse, PaginatedOrderResponse
+from app.schemas.admin import AdminOrderStatusUpdate
+from app.schemas.order import OrderDetailResponse
 from app.schemas.product import (
-    PaginatedProductResponse,
     ProductCreate as ProductCreateRequest,
     ProductDetailResponse,
     ProductUpdate as ProductUpdateRequest,
@@ -35,8 +31,44 @@ from app.services.product import (
     list_products,
     update_product,
 )
+from app.routers.products import _serialize_product
 
 router = APIRouter(prefix="/api/v1/admin", tags=["Quan tri"], dependencies=[Depends(get_current_admin)])
+
+
+# ---------- Helpers ----------
+
+
+def _serialize_order(order) -> dict:
+    """Chuyen doi Order model sang format frontend."""
+    items = []
+    for item in (order.items or []):
+        items.append({
+            "id": str(item.id),
+            "productId": str(item.variant_id or ""),
+            "productName": item.product_name,
+            "variantInfo": item.variant_info,
+            "quantity": item.quantity,
+            "unitPrice": float(item.unit_price),
+            "totalPrice": float(item.line_total),
+        })
+    status_val = order.status.value if hasattr(order.status, "value") else str(order.status)
+    return {
+        "id": str(order.id),
+        "orderNumber": order.order_number,
+        "userId": str(order.user_id),
+        "orderStatus": status_val,
+        "subtotal": float(order.subtotal),
+        "shippingCost": float(order.shipping_fee),
+        "total": float(order.total),
+        "shippingAddress": order.shipping_address or {},
+        "paymentMethod": "cod",
+        "paymentStatus": "pending",
+        "note": order.notes,
+        "items": items,
+        "createdAt": order.created_at.isoformat() if order.created_at else None,
+        "updatedAt": order.updated_at.isoformat() if order.updated_at else None,
+    }
 
 
 # ---------- San pham ----------
@@ -44,7 +76,6 @@ router = APIRouter(prefix="/api/v1/admin", tags=["Quan tri"], dependencies=[Depe
 
 @router.get(
     "/products",
-    response_model=PaginatedProductResponse,
     summary="[Admin] Lay danh sach san pham",
 )
 async def admin_list_products(
@@ -63,7 +94,15 @@ async def admin_list_products(
         page=page,
         page_size=page_size,
     )
-    return result
+    return {
+        "data": [_serialize_product(p) for p in result["items"]],
+        "pagination": {
+            "page": result["page"],
+            "limit": page_size,
+            "total": result["total"],
+            "totalPages": result["total_pages"],
+        },
+    }
 
 
 @router.post(
@@ -107,7 +146,6 @@ async def admin_update_product(
 
 @router.get(
     "/orders",
-    response_model=PaginatedOrderResponse,
     summary="[Admin] Lay danh sach tat ca don hang",
 )
 async def admin_list_orders(
@@ -119,13 +157,27 @@ async def admin_list_orders(
     result = await list_all_orders(
         db, status=order_status, page=page, page_size=page_size
     )
-    return result
+    return {
+        "data": [_serialize_order(o) for o in result["items"]],
+        "pagination": {
+            "page": result["page"],
+            "limit": page_size,
+            "total": result["total"],
+            "totalPages": result["total_pages"],
+        },
+    }
 
 
 @router.put(
     "/orders/{order_id}/status",
     response_model=OrderDetailResponse,
-    summary="[Admin] Cap nhat trang thai don hang",
+    summary="[Admin] Cap nhat trang thai don hang (PUT)",
+)
+@router.patch(
+    "/orders/{order_id}/status",
+    response_model=OrderDetailResponse,
+    summary="[Admin] Cap nhat trang thai don hang (PATCH)",
+    include_in_schema=False,
 )
 async def admin_update_order_status(
     order_id: int,
@@ -141,7 +193,7 @@ async def admin_update_order_status(
             admin_id=admin.id,
             note=body.note,
         )
-        # Gui email thong bao (bat dong bo qua Celery)
+        # Gui email thong bao (bat dong bo)
         try:
             from sqlalchemy import select
             from app.models.user import User as UserModel
@@ -164,8 +216,22 @@ async def admin_update_order_status(
 
 @router.get(
     "/metrics",
-    response_model=AdminMetricsResponse,
     summary="[Admin] Lay thong ke tong quan",
 )
 async def admin_metrics(db: AsyncSession = Depends(get_db)):
-    return await get_admin_metrics(db)
+    data = await get_admin_metrics(db)
+    return {
+        "totalRevenue": int(data.get("total_revenue", 0)),
+        "totalOrders": data.get("total_orders", 0),
+        "totalCustomers": data.get("total_customers", 0),
+        "totalProducts": data.get("total_products", 0),
+        "todayOrders": data.get("today_orders", 0),
+        "todayRevenue": int(data.get("today_revenue", 0)),
+        "ordersByStatus": data.get("orders_by_status", {}),
+        # snake_case aliases for backward compat
+        "total_revenue": int(data.get("total_revenue", 0)),
+        "total_orders": data.get("total_orders", 0),
+        "today_orders": data.get("today_orders", 0),
+        "today_revenue": int(data.get("today_revenue", 0)),
+        "orders_by_status": data.get("orders_by_status", {}),
+    }

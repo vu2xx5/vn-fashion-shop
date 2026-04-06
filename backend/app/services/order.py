@@ -355,6 +355,9 @@ async def list_all_orders(
 
 async def get_admin_metrics(db: AsyncSession) -> dict[str, Any]:
     """Lay thong ke co ban cho admin dashboard."""
+    from app.models.product import Product
+    from app.models.user import User
+
     # Tong don hang
     total_orders_result = await db.execute(select(func.count(Order.id)))
     total_orders = total_orders_result.scalar() or 0
@@ -371,7 +374,10 @@ async def get_admin_metrics(db: AsyncSession) -> dict[str, Any]:
     status_counts_result = await db.execute(
         select(Order.status, func.count(Order.id)).group_by(Order.status)
     )
-    status_counts = {row[0]: row[1] for row in status_counts_result.all()}
+    status_counts = {
+        (row[0].value if hasattr(row[0], "value") else str(row[0])): row[1]
+        for row in status_counts_result.all()
+    }
 
     # Don hang hom nay
     today_start = datetime.now(timezone.utc).replace(
@@ -391,12 +397,26 @@ async def get_admin_metrics(db: AsyncSession) -> dict[str, Any]:
     )
     today_revenue = today_revenue_result.scalar() or 0
 
+    # Tong khach hang
+    total_customers_result = await db.execute(
+        select(func.count(User.id)).where(User.is_admin == False)  # noqa: E712
+    )
+    total_customers = total_customers_result.scalar() or 0
+
+    # Tong san pham
+    total_products_result = await db.execute(
+        select(func.count(Product.id)).where(Product.is_active == True)  # noqa: E712
+    )
+    total_products = total_products_result.scalar() or 0
+
     return {
         "total_orders": total_orders,
         "total_revenue": total_revenue,
         "today_orders": today_orders,
         "today_revenue": today_revenue,
         "orders_by_status": status_counts,
+        "total_customers": total_customers,
+        "total_products": total_products,
     }
 
 

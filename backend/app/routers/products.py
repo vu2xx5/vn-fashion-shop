@@ -19,6 +19,25 @@ from app.services.product import (
 router = APIRouter(prefix="/api/v1/products", tags=["San pham"])
 
 
+COLOR_HEX_MAP = {
+    "Đen": "#000000",
+    "Trắng": "#FFFFFF",
+    "Đỏ": "#FF0000",
+    "Xanh dương": "#0000FF",
+    "Xanh lá": "#008000",
+    "Vàng": "#FFD700",
+    "Hồng": "#FF69B4",
+    "Nâu": "#8B4513",
+    "Xám": "#808080",
+    "Be": "#F5F5DC",
+    "Cam": "#FF8C00",
+    "Tím": "#800080",
+    "Kem": "#FFFDD0",
+    "Bạc": "#C0C0C0",
+    "Navy": "#000080",
+}
+
+
 def _serialize_product(product) -> dict:
     """Chuyen doi Product model sang format frontend."""
     primary_image = None
@@ -43,11 +62,12 @@ def _serialize_product(product) -> dict:
     seen_sizes = set()
     seen_colors = set()
     for v in (product.variants or []):
+        color_hex = COLOR_HEX_MAP.get(v.color or "", "#000000")
         variants.append({
             "id": str(v.id),
             "productId": str(product.id),
             "size": {"id": v.size or "", "name": v.size or "", "value": v.size or "", "sortOrder": 0},
-            "color": {"id": v.color or "", "name": v.color or "", "hex": "#000000", "sortOrder": 0},
+            "color": {"id": v.color or "", "name": v.color or "", "hex": color_hex, "sortOrder": 0},
             "sku": v.sku,
             "price": float(v.price_override or product.price),
             "stock": v.stock_quantity,
@@ -58,7 +78,7 @@ def _serialize_product(product) -> dict:
             sizes.append({"id": v.size, "name": v.size, "value": v.size, "sortOrder": len(sizes)})
         if v.color and v.color not in seen_colors:
             seen_colors.add(v.color)
-            colors.append({"id": v.color, "name": v.color, "hex": "#000000", "sortOrder": len(colors)})
+            colors.append({"id": v.color, "name": v.color, "hex": COLOR_HEX_MAP.get(v.color, "#000000"), "sortOrder": len(colors)})
 
     cat = None
     if product.category:

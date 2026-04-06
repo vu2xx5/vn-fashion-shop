@@ -316,23 +316,68 @@ function NewsletterSection() {
   );
 }
 
+function FeaturedProducts({ products }: { products: Product[] }) {
+  if (products.length === 0) return null;
+
+  return (
+    <section className="section-padding bg-gray-50 dark:bg-gray-950">
+      <div className="container-custom">
+        <div className="flex items-center justify-between mb-8 sm:mb-12">
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              Sản phẩm nổi bật
+            </h2>
+            <p className="text-gray-500 dark:text-gray-400">
+              Những sản phẩm được yêu thích nhất
+            </p>
+          </div>
+          <Link
+            href="/products?sort=popular"
+            className="hidden sm:flex items-center gap-1.5 text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+          >
+            Xem tất cả
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+        <div className="mt-8 text-center sm:hidden">
+          <Link href="/products?sort=popular">
+            <Button variant="outline" rightIcon={<ArrowRight className="h-4 w-4" />}>
+              Xem tất cả
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function HomePage() {
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [arrivalsRes, categoriesRes] = await Promise.allSettled([
+        const [arrivalsRes, categoriesRes, featuredRes] = await Promise.allSettled([
           getNewArrivals(),
           getCategories(),
+          getFeaturedProducts(),
         ]);
         if (arrivalsRes.status === "fulfilled") {
           setNewArrivals(arrivalsRes.value.data);
         }
         if (categoriesRes.status === "fulfilled") {
           setCategories(categoriesRes.value.data);
+        }
+        if (featuredRes.status === "fulfilled") {
+          setFeaturedProducts(featuredRes.value.data);
         }
       } catch {
         // Silently handle errors - show empty state
@@ -367,6 +412,7 @@ export default function HomePage() {
       ) : (
         <>
           <CategoryGrid categories={categories} />
+          <FeaturedProducts products={featuredProducts} />
           <NewArrivals products={newArrivals} />
         </>
       )}

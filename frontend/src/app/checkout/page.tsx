@@ -533,6 +533,37 @@ function ConfirmStep({
   );
 }
 
+function OrderSuccessState({ orderNumber, orderId }: { orderNumber: string; orderId: string }) {
+  return (
+    <div className="max-w-lg mx-auto text-center py-12">
+      <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+        <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+      </div>
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+        Đặt hàng thành công!
+      </h2>
+      <p className="text-gray-500 dark:text-gray-400 mb-2">
+        Cảm ơn bạn đã mua sắm tại VN Fashion.
+      </p>
+      <p className="text-gray-600 dark:text-gray-300 mb-8">
+        Mã đơn hàng của bạn là{" "}
+        <span className="font-semibold text-primary-600 dark:text-primary-400">
+          #{orderNumber}
+        </span>
+        . Chúng tôi sẽ liên hệ xác nhận đơn hàng trong thời gian sớm nhất.
+      </p>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <Link href={`/profile/orders/${orderId}`}>
+          <Button size="lg">Xem đơn hàng</Button>
+        </Link>
+        <Link href="/products">
+          <Button size="lg" variant="outline">Tiếp tục mua sắm</Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, subtotal, isEmpty, clearCart } = useCart();
@@ -554,6 +585,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [orderSuccess, setOrderSuccess] = useState<{ orderNumber: string; orderId: string } | null>(null);
 
   const shippingCost = shippingMethod
     ? (shippingOptions.find((s) => s.id === shippingMethod)?.price ?? 0)
@@ -626,14 +658,14 @@ export default function CheckoutPage() {
         };
       }
 
-      await createOrder({
+      const result = await createOrder({
         shipping_address: shippingAddress,
         address_id: addressId,
         notes: note || undefined,
       });
 
       clearCart();
-      router.push("/profile");
+      setOrderSuccess({ orderNumber: result.data.orderNumber, orderId: result.data.id });
     } catch {
       // Handle error
     } finally {
@@ -641,7 +673,15 @@ export default function CheckoutPage() {
     }
   };
 
-  if (isEmpty) return null;
+  if (isEmpty && !orderSuccess) return null;
+
+  if (orderSuccess) {
+    return (
+      <div className="container-custom section-padding">
+        <OrderSuccessState orderNumber={orderSuccess.orderNumber} orderId={orderSuccess.orderId} />
+      </div>
+    );
+  }
 
   return (
     <div className="container-custom section-padding">

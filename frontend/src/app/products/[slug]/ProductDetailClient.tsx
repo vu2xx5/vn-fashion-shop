@@ -29,6 +29,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const [selectedColor, setSelectedColor] = useState<Color | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"description" | "details">("description");
 
   const sortedImages = [...product.images].sort((a, b) => a.sortOrder - b.sortOrder);
@@ -49,9 +50,15 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const inStock = selectedVariant ? selectedVariant.stock > 0 : product.stock > 0;
 
   const handleAddToCart = async () => {
-    if (product.sizes.length > 0 && !selectedSize) return;
-    if (product.colors.length > 0 && !selectedColor) return;
-
+    if (product.sizes.length > 0 && !selectedSize) {
+      setValidationError("Vui lòng chọn kích thước");
+      return;
+    }
+    if (product.colors.length > 0 && !selectedColor) {
+      setValidationError("Vui lòng chọn màu sắc");
+      return;
+    }
+    setValidationError(null);
     setIsAdding(true);
     addToCart(
       product,
@@ -261,7 +268,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 {product.colors.map((color) => (
                   <button
                     key={color.id}
-                    onClick={() => setSelectedColor(color)}
+                    onClick={() => { setSelectedColor(color); setValidationError(null); }}
                     className={cn(
                       "relative w-10 h-10 rounded-full border-2 transition-all",
                       selectedColor?.id === color.id
@@ -296,7 +303,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 {product.sizes.map((size) => (
                   <button
                     key={size.id}
-                    onClick={() => setSelectedSize(size)}
+                    onClick={() => { setSelectedSize(size); setValidationError(null); }}
                     className={cn(
                       "min-w-[48px] px-4 py-2.5 rounded-lg border text-sm font-medium transition-all",
                       selectedSize?.id === size.id
@@ -344,6 +351,13 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               </button>
             </div>
           </div>
+
+          {/* Validation error */}
+          {validationError && (
+            <p className="text-sm text-red-600 dark:text-red-400 font-medium" role="alert">
+              {validationError}
+            </p>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">

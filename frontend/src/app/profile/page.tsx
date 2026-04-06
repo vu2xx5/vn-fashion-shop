@@ -16,10 +16,11 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { cn, formatPrice, formatDate, getOrderStatusLabel } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { getOrders, getAddresses, deleteAddress } from "@/lib/api";
+import { getOrders, getAddresses, deleteAddress, addAddress } from "@/lib/api";
 import type { Order, Address } from "@/types";
 
 type Tab = "orders" | "addresses" | "info";
@@ -40,6 +41,16 @@ export default function ProfilePage() {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(true);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    fullName: "",
+    phone: "",
+    streetAddress: "",
+    ward: "",
+    district: "",
+    province: "",
+  });
+  const [isAddingAddress, setIsAddingAddress] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -89,6 +100,29 @@ export default function ProfilePage() {
       setAddresses((prev) => prev.filter((a) => a.id !== id));
     } catch {
       // ignore
+    }
+  };
+
+  const handleAddAddress = async () => {
+    if (!addressForm.fullName || !addressForm.phone || !addressForm.streetAddress || !addressForm.ward || !addressForm.district || !addressForm.province) return;
+    setIsAddingAddress(true);
+    try {
+      const res = await addAddress({
+        fullName: addressForm.fullName,
+        phone: addressForm.phone,
+        streetAddress: addressForm.streetAddress,
+        ward: addressForm.ward,
+        district: addressForm.district,
+        province: addressForm.province,
+        isDefault: addresses.length === 0,
+      });
+      setAddresses((prev) => [...prev, res.data]);
+      setAddressForm({ fullName: "", phone: "", streetAddress: "", ward: "", district: "", province: "" });
+      setShowAddressForm(false);
+    } catch {
+      // ignore
+    } finally {
+      setIsAddingAddress(false);
     }
   };
 
@@ -354,10 +388,76 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 ))}
-                <button className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-primary-600 dark:text-primary-400 hover:border-primary-400 dark:hover:border-primary-500 transition-colors flex items-center justify-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Thêm địa chỉ mới
-                </button>
+                {showAddressForm ? (
+                  <div className="card p-6 space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Thêm địa chỉ mới
+                    </h3>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <Input
+                        label="Họ và tên"
+                        placeholder="Nguyễn Văn A"
+                        value={addressForm.fullName}
+                        onChange={(e) => setAddressForm((prev) => ({ ...prev, fullName: e.target.value }))}
+                        required
+                      />
+                      <Input
+                        label="Số điện thoại"
+                        placeholder="0901 234 567"
+                        type="tel"
+                        value={addressForm.phone}
+                        onChange={(e) => setAddressForm((prev) => ({ ...prev, phone: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <Input
+                      label="Địa chỉ"
+                      placeholder="Số nhà, tên đường"
+                      value={addressForm.streetAddress}
+                      onChange={(e) => setAddressForm((prev) => ({ ...prev, streetAddress: e.target.value }))}
+                      required
+                    />
+                    <div className="grid sm:grid-cols-3 gap-4">
+                      <Input
+                        label="Phường/Xã"
+                        placeholder="Phường"
+                        value={addressForm.ward}
+                        onChange={(e) => setAddressForm((prev) => ({ ...prev, ward: e.target.value }))}
+                        required
+                      />
+                      <Input
+                        label="Quận/Huyện"
+                        placeholder="Quận"
+                        value={addressForm.district}
+                        onChange={(e) => setAddressForm((prev) => ({ ...prev, district: e.target.value }))}
+                        required
+                      />
+                      <Input
+                        label="Tỉnh/Thành phố"
+                        placeholder="TP. Hồ Chí Minh"
+                        value={addressForm.province}
+                        onChange={(e) => setAddressForm((prev) => ({ ...prev, province: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="flex items-center gap-3 pt-2">
+                      <Button onClick={handleAddAddress} isLoading={isAddingAddress}>
+                        Lưu địa chỉ
+                      </Button>
+                      <Button variant="ghost" onClick={() => setShowAddressForm(false)}>
+                        Hủy
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowAddressForm(true)}
+                    className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-primary-600 dark:text-primary-400 hover:border-primary-400 dark:hover:border-primary-500 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Thêm địa chỉ mới
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Search,
   ShoppingBag,
@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/hooks/useCart";
+import { useAuth } from "@/hooks/useAuth";
 import { MobileNav } from "./MobileNav";
 
 const navigation = [
@@ -36,9 +37,12 @@ const navigation = [
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { itemCount, openDrawer } = useCart();
+  const { user, isAuthenticated, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -82,6 +86,13 @@ export function Header() {
     }
   };
 
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && searchQuery.trim()) {
+      router.push("/products?search=" + encodeURIComponent(searchQuery.trim()));
+      setIsSearchOpen(false);
+    }
+  };
+
   const handleDropdownEnter = (label: string) => {
     if (dropdownTimeoutRef.current) {
       clearTimeout(dropdownTimeoutRef.current);
@@ -110,13 +121,33 @@ export function Header() {
           <div className="container-custom flex items-center justify-between py-1.5 text-xs">
             <p>Mien phi van chuyen cho don hang tu 500.000d</p>
             <div className="flex items-center gap-4">
-              <Link href="/auth/login" className="hover:underline">
-                Dang nhap
-              </Link>
-              <span aria-hidden="true">|</span>
-              <Link href="/auth/register" className="hover:underline">
-                Dang ky
-              </Link>
+              {isAuthenticated && user ? (
+                <>
+                  <Link href="/profile" className="hover:underline">
+                    Xin chao, {user.fullName}
+                  </Link>
+                  <span aria-hidden="true">|</span>
+                  <button
+                    onClick={async () => {
+                      await logout();
+                      router.push("/");
+                    }}
+                    className="hover:underline"
+                  >
+                    Dang xuat
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link href="/auth/login" className="hover:underline">
+                    Dang nhap
+                  </Link>
+                  <span aria-hidden="true">|</span>
+                  <Link href="/auth/register" className="hover:underline">
+                    Dang ky
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -212,6 +243,9 @@ export function Header() {
                   placeholder="Tim kiem san pham..."
                   className="input-base pl-10 py-2 text-sm"
                   aria-label="Tim kiem san pham"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                 />
               </div>
             </div>
@@ -255,9 +289,9 @@ export function Header() {
 
               {/* User */}
               <Link
-                href="/profile"
+                href={isAuthenticated ? "/profile" : "/auth/login"}
                 className="hidden sm:flex p-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                aria-label="Tai khoan"
+                aria-label={isAuthenticated ? "Tai khoan" : "Dang nhap"}
               >
                 <User className="h-5 w-5" />
               </Link>
@@ -292,6 +326,9 @@ export function Header() {
                   placeholder="Tim kiem san pham..."
                   className="input-base pl-10 py-2 text-sm"
                   aria-label="Tim kiem san pham"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
                 />
               </div>
             </div>

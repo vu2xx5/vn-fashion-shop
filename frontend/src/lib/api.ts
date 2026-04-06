@@ -205,8 +205,8 @@ export async function addToCart(
 export async function updateCartItem(
   itemId: string,
   quantity: number
-): Promise<ApiResponse<CartItem>> {
-  return api.put<ApiResponse<CartItem>>(`/cart/items/${itemId}`, { quantity });
+): Promise<ApiResponse<Cart>> {
+  return api.put<ApiResponse<Cart>>(`/cart/items/${itemId}`, { quantity });
 }
 
 export async function removeCartItem(itemId: string): Promise<void> {
@@ -295,14 +295,30 @@ export async function getAddresses(): Promise<ApiResponse<Address[]>> {
 }
 
 export async function addAddress(data: Omit<Address, "id">): Promise<ApiResponse<Address>> {
-  return api.post<ApiResponse<Address>>("/addresses", data);
+  return api.post<ApiResponse<Address>>("/addresses", {
+    full_name: data.fullName,
+    phone: data.phone,
+    street: data.streetAddress,
+    ward: data.ward,
+    district: data.district,
+    city: data.province,
+    is_default: data.isDefault ?? false,
+  });
 }
 
 export async function updateAddress(
   id: string,
   data: Partial<Address>
 ): Promise<ApiResponse<Address>> {
-  return api.put<ApiResponse<Address>>(`/addresses/${id}`, data);
+  return api.put<ApiResponse<Address>>(`/addresses/${id}`, {
+    full_name: data.fullName,
+    phone: data.phone,
+    street: data.streetAddress,
+    ward: data.ward,
+    district: data.district,
+    city: data.province,
+    is_default: data.isDefault ?? false,
+  });
 }
 
 export async function deleteAddress(id: string): Promise<void> {

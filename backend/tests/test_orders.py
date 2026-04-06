@@ -6,9 +6,7 @@ Cac test o day su dung router /api/v1/orders da dang ky trong app.
 """
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product import ProductVariant
 from app.models.user import User
@@ -51,7 +49,6 @@ async def _fill_cart(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_create_order(
     client: AsyncClient,
     user_auth_header: dict,
@@ -83,7 +80,6 @@ async def test_create_order(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_get_user_orders(
     client: AsyncClient,
     user_auth_header: dict,
@@ -101,11 +97,14 @@ async def test_get_user_orders(
     resp = await client.get(ORDERS_URL, headers=user_auth_header)
     assert resp.status_code == 200
 
-    data = resp.json()
-    assert isinstance(data, list)
-    assert len(data) >= 1
-    assert "order_number" in data[0]
-    assert "total" in data[0]
+    # Router returns {"data": [...]} with camelCase keys
+    body = resp.json()
+    assert "data" in body
+    orders = body["data"]
+    assert isinstance(orders, list)
+    assert len(orders) >= 1
+    assert "orderNumber" in orders[0]
+    assert "total" in orders[0]
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +112,6 @@ async def test_get_user_orders(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_get_order_detail(
     client: AsyncClient,
     user_auth_header: dict,
@@ -145,7 +143,6 @@ async def test_get_order_detail(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_cancel_order(
     client: AsyncClient,
     user_auth_header: dict,
@@ -160,7 +157,6 @@ async def test_cancel_order(
     )
     order_id = create_resp.json()["id"]
 
-    # Huy don hang (endpoint POST /{id}/cancel)
     resp = await client.post(
         f"{ORDERS_URL}/{order_id}/cancel", headers=user_auth_header
     )
@@ -175,7 +171,6 @@ async def test_cancel_order(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_admin_update_status(
     client: AsyncClient,
     user_auth_header: dict,
@@ -192,7 +187,7 @@ async def test_admin_update_status(
     )
     order_id = create_resp.json()["id"]
 
-    # Admin cap nhat trang thai
+    # Admin cap nhat trang thai qua orders router (PUT /{id}/status)
     resp = await client.put(
         f"{ORDERS_URL}/{order_id}/status",
         json={"status": "paid", "notes": "Da xac nhan thanh toan"},
@@ -202,3 +197,37 @@ async def test_admin_update_status(
 
     data = resp.json()
     assert data["status"] == "paid"
+
+
+# ---------------------------------------------------------------------------
+# Test khong the huy don hang da thanh toan
+# ---------------------------------------------------------------------------
+
+
+async def test_cannot_cancel_paid_order(
+    client: AsyncClient,
+    user_auth_header: dict,
+    admin_auth_header: dict,
+    sample_variant: ProductVariant,
+):
+    """Khong the huy don hang da o trang thai paid."""
+    await _fill_cart(client, user_auth_header, sample_variant.id)
+    create_resp = await client.post(
+        ORDERS_URL,
+        json={"shipping_address": SHIPPING_ADDRESS},
+        headers=user_auth_header,
+    )
+    order_id = create_resp.json()["id"]
+
+    # Admin cap nhat sang paid
+    await client.put(
+        f"{ORDERS_URL}/{order_id}/status",
+        json={"status": "paid"},
+        headers=admin_auth_header,
+    )
+
+    # Thu huy - phai that bai
+    resp = await client.post(
+        f"{ORDERS_URL}/{order_id}/cancel", headers=user_auth_header
+    )
+    assert resp.status_code == 400

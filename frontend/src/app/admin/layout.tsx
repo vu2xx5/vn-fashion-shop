@@ -1,7 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 
 const adminNav = [
@@ -12,35 +13,21 @@ const adminNav = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isLoading } = useAuth();
 
-  if (isLoading) {
+  useEffect(() => {
+    if (!isLoading && user?.role !== 'admin') {
+      router.replace('/');
+    }
+  }, [isLoading, user, router]);
+
+  if (isLoading || user?.role !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-400">Dang tai...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (user?.role !== 'admin') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Truy cập bị từ chối
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Bạn không có quyền truy cập trang quản trị.
-          </p>
-          <Link
-            href="/"
-            className="text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium"
-          >
-            Về trang chủ
-          </Link>
+          <p className="text-gray-500 dark:text-gray-400">Đang tải...</p>
         </div>
       </div>
     );

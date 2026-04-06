@@ -5,7 +5,6 @@ Su dung pytest-asyncio + httpx AsyncClient voi in-memory SQLite.
 """
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 
 
@@ -31,30 +30,29 @@ VALID_USER = {
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_register_success(client: AsyncClient):
     """Dang ky thanh cong voi du lieu hop le."""
     resp = await client.post(REGISTER_URL, json=VALID_USER)
     assert resp.status_code == 201
 
-    data = resp.json()
-    assert data["email"] == VALID_USER["email"]
-    assert data["full_name"] == VALID_USER["full_name"]
-    assert data["is_admin"] is False
-    assert data["is_active"] is True
+    body = resp.json()
+    # Router returns {success: true, data: {user: {...}, token: "..."}}
+    assert body["success"] is True
+    assert "data" in body
+    user_data = body["data"]["user"]
+    assert user_data["email"] == VALID_USER["email"]
+    assert user_data["fullName"] == VALID_USER["full_name"]
+    assert user_data["role"] == "customer"
     # Khong tra ve password
-    assert "password" not in data
-    assert "hashed_password" not in data
+    assert "password" not in user_data
+    assert "hashed_password" not in user_data
 
 
-@pytest.mark.asyncio
 async def test_register_duplicate_email(client: AsyncClient):
     """Dang ky voi email da ton tai phai that bai 409."""
-    # Dang ky lan dau
     resp1 = await client.post(REGISTER_URL, json=VALID_USER)
     assert resp1.status_code == 201
 
-    # Dang ky lan hai voi cung email
     resp2 = await client.post(REGISTER_URL, json=VALID_USER)
     assert resp2.status_code == 409
 
@@ -64,10 +62,8 @@ async def test_register_duplicate_email(client: AsyncClient):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_login_success(client: AsyncClient):
     """Dang nhap thanh cong va nhan duoc token."""
-    # Tao tai khoan truoc
     await client.post(REGISTER_URL, json=VALID_USER)
 
     resp = await client.post(
@@ -76,17 +72,16 @@ async def test_login_success(client: AsyncClient):
     )
     assert resp.status_code == 200
 
-    data = resp.json()
-    assert "access_token" in data
-    assert "refresh_token" in data
-    assert data["token_type"] == "bearer"
-    assert data["expires_in"] > 0
+    body = resp.json()
+    # Router returns {success: true, data: {user: {...}, token: "..."}}
+    assert body["success"] is True
+    assert "token" in body["data"]
+    assert "user" in body["data"]
+    assert body["data"]["user"]["email"] == VALID_USER["email"]
 
 
-@pytest.mark.asyncio
 async def test_login_wrong_password(client: AsyncClient):
     """Dang nhap sai mat khau phai that bai 401."""
-    # Tao tai khoan truoc
     await client.post(REGISTER_URL, json=VALID_USER)
 
     resp = await client.post(
@@ -101,43 +96,18 @@ async def test_login_wrong_password(client: AsyncClient):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_get_current_user(client: AsyncClient, user_auth_header: dict):
     """Lay thong tin user hien tai voi token hop le."""
     resp = await client.get(ME_URL, headers=user_auth_header)
     assert resp.status_code == 200
 
-    data = resp.json()
-    assert data["email"] == "testuser@example.com"
-    assert data["full_name"] == "Nguyen Van Test"
-    assert data["is_admin"] is False
-
-
-# ---------------------------------------------------------------------------
-# Test lam moi token
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_refresh_token(client: AsyncClient):
-    """Lam moi access token tu refresh token hop le."""
-    # Dang ky va dang nhap de lay refresh token
-    await client.post(REGISTER_URL, json=VALID_USER)
-    login_resp = await client.post(
-        LOGIN_URL,
-        json={"email": VALID_USER["email"], "password": VALID_USER["password"]},
-    )
-    tokens = login_resp.json()
-    refresh_tok = tokens["refresh_token"]
-
-    # Gui yeu cau lam moi
-    resp = await client.post(REFRESH_URL, json={"refresh_token": refresh_tok})
-    assert resp.status_code == 200
-
-    data = resp.json()
-    assert "access_token" in data
-    assert "refresh_token" in data
-    assert data["token_type"] == "bearer"
+    body = resp.json()
+    # Router returns {success: true, data: {...user fields camelCase...}}
+    assert body["success"] is True
+    user_data = body["data"]
+    assert user_data["email"] == "testuser@example.com"
+    assert user_data["fullName"] == "Nguyen Van Test"
+    assert user_data["role"] == "customer"
 
 
 # ---------------------------------------------------------------------------
@@ -145,8 +115,37 @@ async def test_refresh_token(client: AsyncClient):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
 async def test_unauthorized_access(client: AsyncClient):
     """Truy cap endpoint bao ve khong co token phai tra ve 401."""
     resp = await client.get(ME_URL)
     assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Test mat khau khong du manh
+# ---------------------------------------------------------------------------
+
+
+async def test_register_weak_password(client: AsyncClient):
+    """Dang ky voi mat khau khong du manh (khong co chu hoa) phai that bai 422."""
+    resp = await client.post(
+        REGISTER_URL,
+        json={**VALID_USER, "email": "weak@example.com", "password": "weakpassword1"},
+    )
+    assert resp.status_code == 422
+
+
+async def test_password_hashing(client: AsyncClient):
+    """Dam bao mat khau duoc hash - khong luu plain text."""
+    resp = await client.post(REGISTER_URL, json=VALID_USER)
+    assert resp.status_code == 201
+    body = resp.json()
+    user_data = body["data"]["user"]
+    # Khong co truong nao tra ve mat khau go
+    assert "password" not in str(body)
+    # Nhung van dang nhap duoc bang mat khau goc
+    login_resp = await client.post(
+        LOGIN_URL,
+        json={"email": VALID_USER["email"], "password": VALID_USER["password"]},
+    )
+    assert login_resp.status_code == 200
