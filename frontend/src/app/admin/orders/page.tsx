@@ -5,13 +5,14 @@ import { apiClient } from '@/lib/api';
 
 interface AdminOrder {
   id: string;
-  order_number: string;
-  customer_name: string;
-  customer_email: string;
+  orderNumber: string;
+  orderStatus: string;
   total: number;
-  status: string;
-  items_count: number;
-  created_at: string;
+  items: Array<{ id: string }>;
+  shippingAddress: { full_name?: string; phone?: string };
+  createdAt: string;
+  // computed for display
+  _customerName?: string;
 }
 
 const statusOptions = [
@@ -38,17 +39,12 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     async function fetchOrders() {
       try {
-        const params = filter !== 'all' ? `?status=${filter}` : '';
-        const data = await apiClient.get<{ items?: AdminOrder[] }>(`/admin/orders${params}`);
-        setOrders(data.items || data as unknown as AdminOrder[]);
+        const params: Record<string, string> = {};
+        if (filter !== 'all') params.status = filter;
+        const res = await apiClient.get<{ data: AdminOrder[]; pagination: { total: number } }>('/admin/orders', params);
+        setOrders(res.data || []);
       } catch {
-        setOrders([
-          { id: '1', order_number: 'VNF-20260331-001', customer_name: 'Nguyễn Văn A', customer_email: 'nguyenvana@email.com', total: 1298000, status: 'paid', items_count: 3, created_at: '2026-03-31T10:00:00Z' },
-          { id: '2', order_number: 'VNF-20260331-002', customer_name: 'Trần Thị B', customer_email: 'tranthib@email.com', total: 599000, status: 'pending', items_count: 1, created_at: '2026-03-31T09:30:00Z' },
-          { id: '3', order_number: 'VNF-20260330-015', customer_name: 'Lê Văn C', customer_email: 'levanc@email.com', total: 890000, status: 'shipped', items_count: 2, created_at: '2026-03-30T15:20:00Z' },
-          { id: '4', order_number: 'VNF-20260330-014', customer_name: 'Phạm Thị D', customer_email: 'phamthid@email.com', total: 1520000, status: 'delivered', items_count: 4, created_at: '2026-03-30T12:00:00Z' },
-          { id: '5', order_number: 'VNF-20260329-008', customer_name: 'Hoàng Văn E', customer_email: 'hoangvane@email.com', total: 250000, status: 'cancelled', items_count: 1, created_at: '2026-03-29T08:00:00Z' },
-        ]);
+        setOrders([]);
       } finally {
         setLoading(false);
       }
@@ -60,14 +56,14 @@ export default function AdminOrdersPage() {
     try {
       await apiClient.put<unknown>(`/admin/orders/${orderId}/status`, { status: newStatus });
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        prev.map((o) => (o.id === orderId ? { ...o, orderStatus: newStatus } : o))
       );
     } catch (err) {
       console.error('Không thể cập nhật trạng thái:', err);
     }
   }
 
-  const filteredOrders = filter === 'all' ? orders : orders.filter((o) => o.status === filter);
+  const filteredOrders = filter === 'all' ? orders : orders.filter((o) => o.orderStatus === filter);
 
   return (
     <div className="space-y-6">
@@ -129,22 +125,20 @@ export default function AdminOrdersPage() {
               </thead>
               <tbody>
                 {filteredOrders.map((order) => {
-                  const status = getStatusInfo(order.status);
+                  const status = getStatusInfo(order.orderStatus);
+                  const customerName = order.shippingAddress?.full_name || '—';
                   return (
                     <tr
                       key={order.id}
                       className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30"
                     >
                       <td className="px-6 py-4 font-mono text-xs text-gray-900 dark:text-white">
-                        {order.order_number}
+                        {order.orderNumber}
                       </td>
                       <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{order.customer_name}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{order.customer_email}</p>
-                        </div>
+                        <p className="font-medium text-gray-900 dark:text-white">{customerName}</p>
                       </td>
-                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{order.items_count}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-400">{order.items?.length ?? 0}</td>
                       <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                         {formatVND(order.total)}
                       </td>
@@ -154,14 +148,14 @@ export default function AdminOrdersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
-                        {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                        {order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : '—'}
                       </td>
                       <td className="px-6 py-4">
                         <select
-                          value={order.status}
+                          value={order.orderStatus}
                           onChange={(e) => handleStatusChange(order.id, e.target.value)}
                           className="text-xs border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                          aria-label={`Cập nhật trạng thái đơn ${order.order_number}`}
+                          aria-label={`Cập nhật trạng thái đơn ${order.orderNumber}`}
                         >
                           {statusOptions.map((s) => (
                             <option key={s.value} value={s.value}>

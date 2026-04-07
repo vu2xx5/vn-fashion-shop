@@ -41,6 +41,10 @@ export default function RegisterPage() {
       errors.password = "Vui lòng nhập mật khẩu";
     } else if (password.length < 8) {
       errors.password = "Mật khẩu phải có ít nhất 8 ký tự";
+    } else if (!/[A-Z]/.test(password)) {
+      errors.password = "Mật khẩu phải có ít nhất 1 ký tự in hoa";
+    } else if (!/[0-9]/.test(password)) {
+      errors.password = "Mật khẩu phải có ít nhất 1 chữ số";
     }
 
     if (!confirmPassword) {

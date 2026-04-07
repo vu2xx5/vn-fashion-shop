@@ -585,6 +585,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [note, setNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [orderSuccess, setOrderSuccess] = useState<{ orderNumber: string; orderId: string } | null>(null);
 
   const shippingCost = shippingMethod
@@ -621,6 +622,7 @@ export default function CheckoutPage() {
     if (!shippingMethod || !paymentMethod) return;
 
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       // Build shipping address
       let shippingAddress: {
@@ -666,8 +668,9 @@ export default function CheckoutPage() {
 
       clearCart();
       setOrderSuccess({ orderNumber: result.data.orderNumber, orderId: result.data.id });
-    } catch {
-      // Handle error
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Đặt hàng thất bại. Vui lòng thử lại.";
+      setSubmitError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -740,19 +743,26 @@ export default function CheckoutPage() {
           />
         )}
         {currentStep === "confirm" && (
-          <ConfirmStep
-            items={items}
-            subtotal={subtotal}
-            shippingMethod={shippingMethod}
-            paymentMethod={paymentMethod}
-            shippingCost={shippingCost}
-            total={total}
-            note={note}
-            onNoteChange={setNote}
-            onSubmit={handleSubmit}
-            onBack={() => setCurrentStep("payment")}
-            isSubmitting={isSubmitting}
-          />
+          <>
+            {submitError && (
+              <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300" role="alert">
+                {submitError}
+              </div>
+            )}
+            <ConfirmStep
+              items={items}
+              subtotal={subtotal}
+              shippingMethod={shippingMethod}
+              paymentMethod={paymentMethod}
+              shippingCost={shippingCost}
+              total={total}
+              note={note}
+              onNoteChange={setNote}
+              onSubmit={handleSubmit}
+              onBack={() => setCurrentStep("payment")}
+              isSubmitting={isSubmitting}
+            />
+          </>
         )}
       </div>
     </div>

@@ -61,11 +61,20 @@ class ApiClient {
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
-        throw new ApiError(
-          errorBody?.detail || errorBody?.message || `HTTP ${response.status}: ${response.statusText}`,
-          response.status,
-          errorBody?.errors
-        );
+        let message = `HTTP ${response.status}: ${response.statusText}`;
+        if (errorBody?.detail) {
+          if (typeof errorBody.detail === "string") {
+            message = errorBody.detail;
+          } else if (Array.isArray(errorBody.detail)) {
+            // Pydantic validation errors
+            message = errorBody.detail
+              .map((e: { msg?: string; loc?: string[] }) => e.msg || "Lỗi xác thực")
+              .join(". ");
+          }
+        } else if (errorBody?.message) {
+          message = errorBody.message;
+        }
+        throw new ApiError(message, response.status, errorBody?.errors);
       }
 
       if (response.status === 204) {

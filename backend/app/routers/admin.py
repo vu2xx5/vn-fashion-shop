@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_current_admin, get_db
 from app.models.user import User
 from app.schemas.admin import AdminOrderStatusUpdate
-from app.schemas.order import OrderDetailResponse
 from app.schemas.product import (
     ProductCreate as ProductCreateRequest,
     ProductDetailResponse,
@@ -170,12 +169,10 @@ async def admin_list_orders(
 
 @router.put(
     "/orders/{order_id}/status",
-    response_model=OrderDetailResponse,
     summary="[Admin] Cap nhat trang thai don hang (PUT)",
 )
 @router.patch(
     "/orders/{order_id}/status",
-    response_model=OrderDetailResponse,
     summary="[Admin] Cap nhat trang thai don hang (PATCH)",
     include_in_schema=False,
 )
@@ -206,7 +203,7 @@ async def admin_update_order_status(
         except Exception:
             pass  # Khong de loi email anh huong response
 
-        return order
+        return {"success": True, "data": _serialize_order(order)}
     except OrderError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
 

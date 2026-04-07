@@ -4,27 +4,16 @@ import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api';
 
 interface Metrics {
-  total_orders: number;
-  total_revenue: number;
-  total_products: number;
-  total_customers: number;
-  recent_orders: Array<{
-    id: string;
-    order_number: string;
-    customer_name: string;
-    total: number;
-    status: string;
-    created_at: string;
-  }>;
+  totalOrders: number;
+  totalRevenue: number;
+  totalProducts: number;
+  totalCustomers: number;
+  // snake_case aliases from backend
+  total_orders?: number;
+  total_revenue?: number;
+  total_products?: number;
+  total_customers?: number;
 }
-
-const statusLabels: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Chờ xử lý', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300' },
-  paid: { label: 'Đã thanh toán', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' },
-  shipped: { label: 'Đã gửi', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300' },
-  delivered: { label: 'Đã giao', color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' },
-  cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' },
-};
 
 function formatVND(amount: number): string {
   return new Intl.NumberFormat('vi-VN').format(amount) + '₫';
@@ -40,19 +29,7 @@ export default function AdminDashboard() {
         const data = await apiClient.get<Metrics>('/admin/metrics');
         setMetrics(data);
       } catch {
-        // Dữ liệu mẫu khi API chưa sẵn sàng
-        setMetrics({
-          total_orders: 156,
-          total_revenue: 245680000,
-          total_products: 48,
-          total_customers: 312,
-          recent_orders: [
-            { id: '1', order_number: 'VNF-20260331-001', customer_name: 'Nguyễn Văn A', total: 1298000, status: 'paid', created_at: '2026-03-31T10:00:00Z' },
-            { id: '2', order_number: 'VNF-20260331-002', customer_name: 'Trần Thị B', total: 599000, status: 'pending', created_at: '2026-03-31T09:30:00Z' },
-            { id: '3', order_number: 'VNF-20260330-015', customer_name: 'Lê Văn C', total: 890000, status: 'shipped', created_at: '2026-03-30T15:20:00Z' },
-            { id: '4', order_number: 'VNF-20260330-014', customer_name: 'Phạm Thị D', total: 1520000, status: 'delivered', created_at: '2026-03-30T12:00:00Z' },
-          ],
-        });
+        setMetrics(null);
       } finally {
         setLoading(false);
       }
@@ -77,10 +54,10 @@ export default function AdminDashboard() {
   }
 
   const cards = [
-    { label: 'Tổng đơn hàng', value: metrics?.total_orders ?? 0, format: (v: number) => v.toLocaleString('vi-VN'), icon: '📦', color: 'border-blue-500' },
-    { label: 'Doanh thu', value: metrics?.total_revenue ?? 0, format: formatVND, icon: '💰', color: 'border-green-500' },
-    { label: 'Sản phẩm', value: metrics?.total_products ?? 0, format: (v: number) => v.toLocaleString('vi-VN'), icon: '👕', color: 'border-purple-500' },
-    { label: 'Khách hàng', value: metrics?.total_customers ?? 0, format: (v: number) => v.toLocaleString('vi-VN'), icon: '👥', color: 'border-amber-500' },
+    { label: 'Tổng đơn hàng', value: metrics?.totalOrders ?? metrics?.total_orders ?? 0, format: (v: number) => v.toLocaleString('vi-VN'), icon: '📦', color: 'border-blue-500' },
+    { label: 'Doanh thu', value: metrics?.totalRevenue ?? metrics?.total_revenue ?? 0, format: formatVND, icon: '💰', color: 'border-green-500' },
+    { label: 'Sản phẩm', value: metrics?.totalProducts ?? metrics?.total_products ?? 0, format: (v: number) => v.toLocaleString('vi-VN'), icon: '👕', color: 'border-purple-500' },
+    { label: 'Khách hàng', value: metrics?.totalCustomers ?? metrics?.total_customers ?? 0, format: (v: number) => v.toLocaleString('vi-VN'), icon: '👥', color: 'border-amber-500' },
   ];
 
   return (
@@ -105,43 +82,24 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Recent Orders */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Đơn hàng gần đây</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                <th className="px-6 py-3 font-medium">Mã đơn</th>
-                <th className="px-6 py-3 font-medium">Khách hàng</th>
-                <th className="px-6 py-3 font-medium">Tổng tiền</th>
-                <th className="px-6 py-3 font-medium">Trạng thái</th>
-                <th className="px-6 py-3 font-medium">Ngày tạo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {metrics?.recent_orders.map((order) => {
-                const status = statusLabels[order.status] ?? { label: order.status, color: 'bg-gray-100 text-gray-800' };
-                return (
-                  <tr key={order.id} className="border-b border-gray-50 dark:border-gray-700/50 hover:bg-gray-50 dark:hover:bg-gray-700/30">
-                    <td className="px-6 py-4 font-mono text-xs">{order.order_number}</td>
-                    <td className="px-6 py-4 text-gray-900 dark:text-white">{order.customer_name}</td>
-                    <td className="px-6 py-4 font-medium">{formatVND(order.total)}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${status.color}`}>
-                        {status.label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
-                      {new Date(order.created_at).toLocaleDateString('vi-VN')}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Quick links */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quản lý</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <a href="/admin/orders" className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <span className="text-2xl">📦</span>
+            <div>
+              <p className="font-medium text-gray-900 dark:text-white">Đơn hàng</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Xem và quản lý đơn hàng</p>
+            </div>
+          </a>
+          <a href="/admin/products" className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+            <span className="text-2xl">👕</span>
+            <div>
+              <p className="font-medium text-gray-900 dark:text-white">Sản phẩm</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Quản lý kho sản phẩm</p>
+            </div>
+          </a>
         </div>
       </div>
     </div>
