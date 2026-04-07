@@ -54,7 +54,7 @@ export function CartItem({ item, className }: CartItemProps) {
             type="button"
             onClick={() => removeItem(item.id)}
             className="flex-shrink-0 rounded p-0.5 text-gray-400 transition-colors hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400"
-            aria-label={`X\u00f3a ${item.product.name} kh\u1ecfi gi\u1ecf h\u00e0ng`}
+            aria-label={`Xóa ${item.product.name} khỏi giỏ hàng`}
           >
             <X className="h-4 w-4" />
           </button>
@@ -69,7 +69,7 @@ export function CartItem({ item, className }: CartItemProps) {
               onClick={() => updateQuantity(item.id, item.quantity - 1)}
               disabled={item.quantity <= 1}
               className="flex h-7 w-7 items-center justify-center rounded-l border border-gray-300 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-              aria-label="Gi\u1ea3m s\u1ed1 l\u01b0\u1ee3ng"
+              aria-label="Giảm số lượng"
             >
               <Minus className="h-3 w-3" />
             </button>
@@ -80,7 +80,7 @@ export function CartItem({ item, className }: CartItemProps) {
               type="button"
               onClick={() => updateQuantity(item.id, item.quantity + 1)}
               className="flex h-7 w-7 items-center justify-center rounded-r border border-gray-300 bg-gray-50 text-gray-600 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
-              aria-label="T\u0103ng s\u1ed1 l\u01b0\u1ee3ng"
+              aria-label="Tăng số lượng"
             >
               <Plus className="h-3 w-3" />
             </button>

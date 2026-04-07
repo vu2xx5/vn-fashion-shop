@@ -290,9 +290,13 @@ export async function getProfile(): Promise<ApiResponse<User>> {
 }
 
 export async function updateProfile(
-  data: Partial<User>
+  data: { fullName?: string; phone?: string; avatar?: string }
 ): Promise<ApiResponse<User>> {
-  return api.put<ApiResponse<User>>("/auth/profile", data);
+  return api.put<ApiResponse<User>>("/auth/profile", {
+    full_name: data.fullName,
+    phone: data.phone,
+    avatar_url: data.avatar,
+  });
 }
 
 // ============================================================

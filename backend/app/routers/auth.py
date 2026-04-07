@@ -13,6 +13,7 @@ from app.schemas.user import (
     UserCreate,
     UserLogin,
     UserResponse,
+    UserUpdate,
 )
 from app.services.auth import AuthError, authenticate_user, refresh_token, register_user
 from app.config import get_settings
@@ -129,6 +130,24 @@ async def get_profile(
     current_user: User = Depends(get_current_user),
 ):
     """Lay thong tin nguoi dung hien tai (alias cho /me)."""
+    return {"success": True, "data": _user_to_frontend(current_user)}
+
+
+@router.put("/profile")
+async def update_profile(
+    body: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Cap nhat thong tin ca nhan."""
+    if body.full_name is not None:
+        current_user.full_name = body.full_name
+    if body.phone is not None:
+        current_user.phone = body.phone
+    if body.avatar_url is not None:
+        current_user.avatar_url = body.avatar_url
+    await db.flush()
+    await db.refresh(current_user)
     return {"success": True, "data": _user_to_frontend(current_user)}
 
 

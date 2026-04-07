@@ -14,6 +14,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.config import get_settings
+from app.database import engine, Base, async_session_factory
 from app.dependencies import limiter
 from app.middleware.security import SecurityHeadersMiddleware
 from app.routers import register_routers
@@ -45,6 +46,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("Ket noi Redis thanh cong")
     except Exception as e:
         logger.warning("Khong the ket noi Redis: %s. Tiep tuc khong co cache.", e)
+
+    # Tao bang va seed du lieu mau neu chua co
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Da dam bao cac bang ton tai")
+
+        # Auto-seed neu chua co du lieu
+        from sqlalchemy import select, func
+        from app.models.user import User
+        async with async_session_factory() as db:
+            result = await db.execute(select(func.count()).select_from(User))
+            user_count = result.scalar() or 0
+            if user_count == 0:
+                logger.info("Database trong, dang seed du lieu mau...")
+                from seed.seed_data import main as seed_main
+                await seed_main()
+                logger.info("Seed du lieu thanh cong")
+            else:
+                logger.info("Database da co %d users, bo qua seed", user_count)
+    except Exception as e:
+        logger.warning("Loi khi seed du lieu: %s", e)
 
     yield
 

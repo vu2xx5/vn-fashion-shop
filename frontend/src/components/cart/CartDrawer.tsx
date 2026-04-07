@@ -78,7 +78,7 @@ export function CartDrawer() {
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Gi\u1ecf h\u00e0ng (${count} s\u1ea3n ph\u1ea9m)`}
+        aria-label={`Giỏ hàng (${count} sản phẩm)`}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
         className={cn(
@@ -89,13 +89,13 @@ export function CartDrawer() {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4 dark:border-gray-800">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Gi\u1ecf h\u00e0ng ({count})
+            Giỏ hàng ({count})
           </h2>
           <button
             type="button"
             onClick={closeDrawer}
             className="rounded-md p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-            aria-label="\u0110\u00f3ng gi\u1ecf h\u00e0ng"
+            aria-label="Đóng giỏ hàng"
           >
             <X className="h-5 w-5" />
           </button>
@@ -118,7 +118,7 @@ export function CartDrawer() {
             <div className="border-t border-gray-200 px-4 py-4 dark:border-gray-800">
               <div className="mb-4 flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  T\u1ea1m t\u00ednh
+                  Tạm tính
                 </span>
                 <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
                   {formatPrice(total)}
@@ -126,11 +126,11 @@ export function CartDrawer() {
               </div>
               <Link href="/checkout" onClick={closeDrawer}>
                 <Button variant="primary" size="lg" fullWidth>
-                  Thanh to\u00e1n
+                  Thanh toán
                 </Button>
               </Link>
               <p className="mt-2 text-center text-xs text-gray-500 dark:text-gray-400">
-                Mi\u1ec5n ph\u00ed v\u1eadn chuy\u1ec3n cho \u0111\u01a1n h\u00e0ng t\u1eeb {formatPrice(500000)}
+                Miễn phí vận chuyển cho đơn hàng từ {formatPrice(500000)}
               </p>
             </div>
           </>
@@ -140,15 +140,15 @@ export function CartDrawer() {
             <ShoppingBag className="h-16 w-16 text-gray-300 dark:text-gray-600" />
             <div className="text-center">
               <p className="text-base font-medium text-gray-600 dark:text-gray-400">
-                Gi\u1ecf h\u00e0ng tr\u1ed1ng
+                Giỏ hàng trống
               </p>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
-                H\u00e3y kh\u00e1m ph\u00e1 c\u00e1c s\u1ea3n ph\u1ea9m c\u1ee7a ch\u00fang t\u00f4i!
+                Hãy khám phá các sản phẩm của chúng tôi!
               </p>
             </div>
             <Link href="/products" onClick={closeDrawer}>
               <Button variant="primary" size="md">
-                Mua s\u1eafm ngay
+                Mua sắm ngay
               </Button>
             </Link>
           </div>

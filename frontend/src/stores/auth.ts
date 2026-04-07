@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { User, LoginCredentials, RegisterData } from "@/types";
 import * as api from "@/lib/api";
+import { useCartStore } from "@/stores/cart";
 
 interface AuthState {
   user: User | null;
@@ -83,6 +84,8 @@ export const useAuthStore = create<AuthState>()((set) => ({
       // Ignore logout errors
     } finally {
       localStorage.removeItem("auth_token");
+      // Clear cart on logout so it doesn't leak to other accounts
+      useCartStore.getState().clearCart();
       set({ user: null, isAuthenticated: false, isLoading: false, error: null });
     }
   },

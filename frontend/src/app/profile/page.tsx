@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
 import { cn, formatPrice, formatDate, getOrderStatusLabel } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { getOrders, getAddresses, deleteAddress, addAddress } from "@/lib/api";
+import { getOrders, getAddresses, deleteAddress, addAddress, updateProfile } from "@/lib/api";
 import type { Order, Address } from "@/types";
 
 type Tab = "orders" | "addresses" | "info";
@@ -35,7 +35,7 @@ const statusBadgeVariant: Record<string, "warning" | "info" | "purple" | "succes
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, logout, loadProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [addresses, setAddresses] = useState<Address[]>([]);
@@ -51,6 +51,10 @@ export default function ProfilePage() {
     province: "",
   });
   const [isAddingAddress, setIsAddingAddress] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ fullName: "", phone: "" });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -123,6 +127,28 @@ export default function ProfilePage() {
       // ignore
     } finally {
       setIsAddingAddress(false);
+    }
+  };
+
+  const handleEditProfile = () => {
+    setProfileForm({ fullName: user?.fullName || "", phone: user?.phone || "" });
+    setProfileError(null);
+    setIsEditingProfile(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profileForm.fullName.trim()) return;
+    setIsSavingProfile(true);
+    setProfileError(null);
+    try {
+      await updateProfile({ fullName: profileForm.fullName.trim(), phone: profileForm.phone.trim() || undefined });
+      // Reload profile to update user state
+      await loadProfile();
+      setIsEditingProfile(false);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Cập nhật thất bại");
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -471,37 +497,73 @@ export default function ProfilePage() {
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Thông tin cá nhân
                 </h2>
-                <Button variant="ghost" size="sm" leftIcon={<Edit3 className="h-4 w-4" />}>
-                  Chỉnh sửa
-                </Button>
+                {!isEditingProfile && (
+                  <Button variant="ghost" size="sm" leftIcon={<Edit3 className="h-4 w-4" />} onClick={handleEditProfile}>
+                    Chỉnh sửa
+                  </Button>
+                )}
               </div>
-              <div className="grid sm:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Họ và tên</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{user.fullName}</p>
+
+              {profileError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-300" role="alert">
+                  {profileError}
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Email</p>
-                  <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                    {user.email}
-                    {user.isEmailVerified && (
-                      <Badge variant="success" size="sm">Đã xác thực</Badge>
-                    )}
-                  </p>
+              )}
+
+              {isEditingProfile ? (
+                <div className="space-y-4">
+                  <Input
+                    label="Họ và tên"
+                    placeholder="Nguyễn Văn A"
+                    value={profileForm.fullName}
+                    onChange={(e) => setProfileForm((prev) => ({ ...prev, fullName: e.target.value }))}
+                    required
+                  />
+                  <Input
+                    label="Số điện thoại"
+                    placeholder="0901 234 567"
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm((prev) => ({ ...prev, phone: e.target.value }))}
+                  />
+                  <div className="flex items-center gap-3 pt-2">
+                    <Button onClick={handleSaveProfile} isLoading={isSavingProfile}>
+                      Lưu thay đổi
+                    </Button>
+                    <Button variant="ghost" onClick={() => setIsEditingProfile(false)}>
+                      Hủy
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Số điện thoại</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {user.phone || "Chưa cập nhật"}
-                  </p>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Họ và tên</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{user.fullName}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Email</p>
+                    <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
+                      {user.email}
+                      {user.isEmailVerified && (
+                        <Badge variant="success" size="sm">Đã xác thực</Badge>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Số điện thoại</p>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {user.phone || "Chưa cập nhật"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Ngày tham gia</p>
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {formatDate(user.createdAt)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Ngày tham gia</p>
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {formatDate(user.createdAt)}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}

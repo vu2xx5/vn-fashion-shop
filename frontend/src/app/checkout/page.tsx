@@ -594,11 +594,12 @@ export default function CheckoutPage() {
   const total = subtotal + shippingCost;
 
   useEffect(() => {
-    if (isEmpty) {
+    // Only redirect if cart is empty AND no order was just placed
+    if (isEmpty && !orderSuccess) {
       router.push("/cart");
       return;
     }
-  }, [isEmpty, router]);
+  }, [isEmpty, orderSuccess, router]);
 
   useEffect(() => {
     async function loadAddresses() {
